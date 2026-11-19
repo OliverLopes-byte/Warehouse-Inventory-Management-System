@@ -1,6 +1,6 @@
 # Warehouse Management System
 
-FastAPI-based warehouse management application.
+FastAPI-based warehouse management application
 
 ## Setup
 
