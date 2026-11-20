@@ -28,7 +28,6 @@ class Settings:
 
     @property
     def database_url(self) -> URL:
-        # URL.create escapes a password containing characters such as @ or /.
         return URL.create(
             "postgresql+psycopg",
             username=self.db_user,
