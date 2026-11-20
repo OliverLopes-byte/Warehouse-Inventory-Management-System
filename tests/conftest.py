@@ -2,17 +2,20 @@ from dataclasses import dataclass
 from decimal import Decimal
 from secrets import token_urlsafe
 from uuid import uuid4
+
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
 from psycopg import sql
 from sqlalchemy.orm import Session
+
 from app.config import get_settings
 from app.db import get_engine
 from app.main import app
 from app.models import Bin, Category, Product, Role, Supplier, UOM, User, Warehouse
 from app.security import create_token, passwords
 from app.setup import migrate
+
 
 TEST_PASSWORD = "isolated-practice-password"
 
@@ -23,12 +26,8 @@ def test_database():
     name = "warehouse_test_" + uuid4().hex[:16]
     with (
         psycopg.connect(
-            host=original.db_host,
-            port=original.db_port,
-            dbname="postgres",
-            user=original.db_user,
-            password=original.db_password,
-            autocommit=True,
+            host=original.db_host, port=original.db_port, dbname="postgres",
+            user=original.db_user, password=original.db_password, autocommit=True,
         ) as maintenance,
         pytest.MonkeyPatch.context() as patch,
     ):
@@ -94,40 +93,26 @@ def sample(test_hash):
         category = Category(name=prefix + " Fasteners")
         uom = UOM(code=prefix + "-EA", description="Each")
         supplier = Supplier(
-            name=prefix + " Hardware",
-            email="supplier@example.com",
-            phone="555-0174",
-            address="Demo street",
-            payment_terms="Net 30",
+            name=prefix + " Hardware", email="supplier@example.com", phone="555-0174",
+            address="Demo street", payment_terms="Net 30",
         )
         db.add_all([home, away, category, uom, supplier])
         db.flush()
-        bin_row = Bin(warehouse_id=home.id, code="A-01")
-        away_bin = Bin(warehouse_id=away.id, code="B-01")
+
+        bin_row, away_bin = Bin(warehouse_id=home.id, code="A-01"), Bin(warehouse_id=away.id, code="B-01")
         product = Product(
-            sku=prefix + "-BOLT",
-            name="Steel bolt",
-            category_id=category.id,
-            uom_id=uom.id,
-            reorder_level=Decimal("5"),
-            unit_cost=Decimal("2.50"),
+            sku=prefix + "-BOLT", name="Steel bolt", category_id=category.id, uom_id=uom.id,
+            reorder_level=Decimal("5"), unit_cost=Decimal("2.50"),
         )
         other_product = Product(
-            sku=prefix + "-NUT",
-            name="Steel nut",
-            category_id=category.id,
-            uom_id=uom.id,
-            reorder_level=Decimal("0"),
-            unit_cost=Decimal("1.20"),
+            sku=prefix + "-NUT", name="Steel nut", category_id=category.id, uom_id=uom.id,
+            reorder_level=Decimal("0"), unit_cost=Decimal("1.20"),
         )
 
         def new_user(label, role, warehouse_id=None):
             return User(
-                email=f"{prefix.lower()}-{label}@example.com",
-                full_name=label,
-                role=role,
-                warehouse_id=warehouse_id,
-                password_hash=test_hash,
+                email=f"{prefix.lower()}-{label}@example.com", full_name=label,
+                role=role, warehouse_id=warehouse_id, password_hash=test_hash,
             )
 
         admin = new_user("admin", Role.ADMIN)
@@ -135,34 +120,9 @@ def sample(test_hash):
         clerk = new_user("clerk", Role.STORE_CLERK, home.id)
         away_clerk = new_user("away-clerk", Role.STORE_CLERK, away.id)
         away_manager = new_user("away-manager", Role.WAREHOUSE_MANAGER, away.id)
-        db.add_all(
-            [
-                bin_row,
-                away_bin,
-                product,
-                other_product,
-                admin,
-                manager,
-                clerk,
-                away_clerk,
-                away_manager,
-            ]
-        )
+        db.add_all([bin_row, away_bin, product, other_product, admin, manager, clerk, away_clerk, away_manager])
         db.commit()
         return Sample(
-            prefix,
-            home,
-            away,
-            bin_row,
-            away_bin,
-            category,
-            uom,
-            product,
-            other_product,
-            supplier,
-            admin,
-            manager,
-            clerk,
-            away_clerk,
-            away_manager,
+            prefix, home, away, bin_row, away_bin, category, uom, product, other_product,
+            supplier, admin, manager, clerk, away_clerk, away_manager,
         )

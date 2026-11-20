@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -55,8 +55,8 @@ async def invalid_request(request: Request, error: RequestValidationError):
 
 
 @app.get("/", include_in_schema=False)
-def dashboard():
-    return FileResponse(STATIC / "index.html")
+def swagger_home():
+    return RedirectResponse("/docs", status_code=307)
 
 
 @app.get("/docs", include_in_schema=False)
