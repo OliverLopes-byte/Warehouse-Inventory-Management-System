@@ -11,13 +11,16 @@ from tests.conftest import TEST_PASSWORD
 from tests.helpers import adjustment, stock
 
 
-def test_health_dashboard_and_swagger(client, test_database):
+def test_health_swagger_and_api_surface(client, test_database):
     assert get_settings().db_name == test_database
     assert client.get("/health").json() == {"status": "ok", "database": "reachable"}
     home = client.get("/")
-    assert "Warehouse Ledger" in home.text
-    assert "default-src 'self'" in home.headers["Content-Security-Policy"]
-    assert client.get("/static/app.js").status_code == 200
+    assert home.status_code == 200
+    assert home.url.path == "/docs"
+    assert home.history[0].status_code == 307
+    assert client.get("/static/app.js").status_code == 404
+    assert client.get("/static/vendor/swagger-ui-bundle.js").status_code == 200
+    assert client.get("/static/favicon.png").status_code == 200
     assert client.get("/docs").status_code == 200
     openapi = client.get("/openapi.json").json()
     scheme = openapi["components"]["securitySchemes"]["OAuth2PasswordBearer"]
