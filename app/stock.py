@@ -1,8 +1,10 @@
 from decimal import Decimal
+
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
+
 from app.models import Movement, StockBalance, StockLedger
 
 
@@ -13,9 +15,9 @@ def lock_balances(db: Session, keys: list[tuple[int, int]]) -> dict[tuple[int, i
         # A missing row cannot be locked. Create zero stock if this is a new position.
         create = insert(StockBalance).values(warehouse_id=warehouse_id, product_id=product_id)
         db.execute(create.on_conflict_do_nothing(constraint="uq_balance_position"))
+
         statement = select(StockBalance).where(
-            StockBalance.warehouse_id == warehouse_id,
-            StockBalance.product_id == product_id,
+            StockBalance.warehouse_id == warehouse_id, StockBalance.product_id == product_id
         ).with_for_update()
         balances[(warehouse_id, product_id)] = db.scalars(
             statement.execution_options(populate_existing=True)
@@ -24,14 +26,8 @@ def lock_balances(db: Session, keys: list[tuple[int, int]]) -> dict[tuple[int, i
 
 
 def write_movement(
-    db: Session,
-    balance: StockBalance,
-    movement: Movement,
-    delta: Decimal,
-    reference_type: str,
-    reference_id: str,
-    actor_id: int,
-    reason: str | None = None,
+    db: Session, balance: StockBalance, movement: Movement, delta: Decimal,
+    reference_type: str, reference_id: str, actor_id: int, reason: str | None = None,
 ) -> StockLedger:
     """Update a locked balance and add its matching history row without committing."""
     after = balance.quantity + delta
@@ -41,6 +37,7 @@ def write_movement(
     balance.position_seq += 1
     if after == 0:
         balance.expiry_on = None
+
     entry = StockLedger(
         product_id=balance.product_id,
         warehouse_id=balance.warehouse_id,

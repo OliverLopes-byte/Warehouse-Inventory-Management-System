@@ -16,7 +16,7 @@ def get_engine():
 
 
 def get_db():
-    
+    # Closing the session rolls back any failed or uncommitted transaction.
     with Session(get_engine(), expire_on_commit=False) as session:
         yield session
 
