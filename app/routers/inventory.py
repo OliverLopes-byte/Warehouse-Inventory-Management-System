@@ -8,7 +8,7 @@ from sqlalchemy import and_, func, select
 from app.db import Database
 from app.models import Movement, Product, StockBalance, StockLedger, Warehouse
 from app.queries import EndDate, PageNumber, PageSize, StartDate, home_warehouse, ledger_dates, page_of, required_row
-from app.schemas import AdjustmentInput, BalanceOut, ExpiryInput, IssueInput, LedgerOut, Page, TransferInput, TransferOut
+from app.Schemas import AdjustmentInput, BalanceOut, ExpiryInput, IssueInput, LedgerOut, Page, TransferInput, TransferOut
 from app.security import Clerk, CurrentUser, Manager
 from app.stock import lock_balances, write_movement
 
