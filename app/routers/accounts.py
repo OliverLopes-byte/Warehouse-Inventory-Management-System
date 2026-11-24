@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app.db import Database
 from app.models import Role, User, Warehouse
 from app.queries import PageNumber, PageSize, page_of, required_row
-from app.schemas import Page, TokenOut, UserCreate, UserOut
+from app.Schemas import Page, TokenOut, UserCreate, UserOut
 from app.security import Admin, CurrentUser, DUMMY_HASH, create_token, invalid_credentials, passwords
 
 

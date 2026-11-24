@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.db import Database
 from app.models import Bin, GRN, GRNItem, Movement, POItem, POStatus, Product, PurchaseOrder, Supplier
 from app.queries import PageNumber, PageSize, home_warehouse, page_of, required_row
-from app.schemas import GRNCreate, GRNOut, POCreate, POOut, Page
+from app.Schemas import GRNCreate, GRNOut, POCreate, POOut, Page
 from app.security import Clerk, Manager, OrderReader
 from app.stock import lock_balances, write_movement
 

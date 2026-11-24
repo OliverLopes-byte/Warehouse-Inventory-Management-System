@@ -6,8 +6,8 @@ from sqlalchemy import select
 from app.db import Database
 from app.models import Bin, Category, Product, Supplier, UOM, Warehouse
 from app.queries import PageNumber, PageSize, page_of, required_row
-from app.schemas import BinInput, BinOut, CategoryInput, CategoryOut, Page, ProductInput
-from app.schemas import ProductOut, SupplierInput, SupplierOut, UOMInput, UOMOut, WarehouseInput, WarehouseOut
+from app.Schemas import BinInput, BinOut, CategoryInput, CategoryOut, Page, ProductInput
+from app.Schemas import ProductOut, SupplierInput, SupplierOut, UOMInput, UOMOut, WarehouseInput, WarehouseOut
 from app.security import Admin, CurrentUser
 
 

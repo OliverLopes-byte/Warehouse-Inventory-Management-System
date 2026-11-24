@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse Inventory Management System | Presentation Study Guide</title>
+<style>
+  @page { size: A4; margin: 17mm 16mm 18mm; }
+  * { box-sizing: border-box; }
+  body {
+    color: #172436;
+    font: 10.2pt/1.48 "Segoe UI", Arial, sans-serif;
+    margin: 0;
+  }
+  h1, h2, h3, h4 { color: #123b5d; line-height: 1.2; }
+  h1 { font-size: 30pt; margin: 0 0 12pt; }
+  h2 { font-size: 20pt; margin: 0 0 13pt; }
+  h3 { font-size: 13pt; margin: 15pt 0 6pt; }
+  h4 { font-size: 10.5pt; margin: 10pt 0 4pt; }
+  p { margin: 5pt 0 8pt; }
+  ul, ol { margin: 4pt 0 9pt; padding-left: 20pt; }
+  li { margin: 2pt 0; }
+  table {
+    border-collapse: collapse;
+    font-size: 9pt;
+    margin: 7pt 0 12pt;
+    width: 100%;
+  }
+  th, td {
+    border: 1px solid #c9d6e2;
+    padding: 5pt 6pt;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #eaf2f8; color: #123b5d; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  code {
+    background: #f0f4f7;
+    border-radius: 2px;
+    color: #153d5d;
+    font: 8.5pt Consolas, "Courier New", monospace;
+    padding: 1px 3px;
+  }
+  .cover {
+    align-items: flex-start;
+    background: #123b5d;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    height: 245mm;
+    justify-content: center;
+    margin: -17mm -16mm 0;
+    padding: 25mm;
+    break-after: page;
+  }
+  .cover h1, .cover h2 { color: white; }
+  .cover h1 { font-size: 34pt; max-width: 150mm; }
+  .cover .eyebrow { color: #9ed5f3; font-size: 11pt; font-weight: bold; letter-spacing: 2pt; }
+  .cover .subtitle { color: #e5f1f8; font-size: 16pt; max-width: 145mm; }
+  .cover .meta { border-top: 1px solid #83a9c2; margin-top: 30pt; padding-top: 12pt; }
+  .lead { color: #34566e; font-size: 12pt; }
+  .callout {
+    background: #edf5fa;
+    border-left: 4px solid #2a83b9;
+    margin: 10pt 0;
+    padding: 8pt 10pt;
+  }
+  .warning {
+    background: #fff5e7;
+    border-left-color: #d78a1c;
+  }
+  .small { color: #526579; font-size: 8.8pt; }
+  .chapter { break-before: page; }
+  .chapter.first { break-before: auto; }
+  .eyebrow { color: #287ba8; font-size: 8pt; font-weight: bold; letter-spacing: 1.4pt; text-transform: uppercase; }
+  .diagram {
+    background: #f5f8fa;
+    border: 1px solid #d5e0e8;
+    color: #123b5d;
+    font: bold 10pt/1.8 Consolas, "Courier New", monospace;
+    margin: 10pt 0;
+    padding: 10pt;
+    text-align: center;
+    white-space: pre-wrap;
+  }
+  .two-col { columns: 2; column-gap: 18pt; }
+  .two-col p, .two-col li { break-inside: avoid; }
+  .no-break { break-inside: avoid; }
+  .pill {
+    background: #dfeef7;
+    border-radius: 8px;
+    color: #174967;
+    display: inline-block;
+    font-size: 8pt;
+    font-weight: bold;
+    margin: 1px 2px 1px 0;
+    padding: 2px 6px;
+  }
+  .end { color: #496176; font-size: 9pt; }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="eyebrow">Presentation Study Guide</div>
+  <h1>Warehouse Inventory Management System</h1>
+  <p class="subtitle">A simple, detailed walkthrough of the project, its workflows, its code, and how to present it.</p>
+  <div class="meta">
+    <p><strong>Project type:</strong> Python REST API with PostgreSQL</p>
+    <p><strong>Interface:</strong> Swagger UI (API documentation and testing screen)</p>
+    <p><strong>Prepared from:</strong> the project source, documentation, migration, and tests</p>
+  </div>
+</section>
+
+<section class="chapter first">
+  <div class="eyebrow">Start here</div>
+  <h2>How to use this guide</h2>
+  <p class="lead">Learn the story of one item moving through the warehouse. The rest of the system becomes easier to explain once that story makes sense.</p>
+  <ol>
+    <li>Understand what the system is for and who uses it.</li>
+    <li>Follow the example flow: set up a product, order it, receive it, store it, issue or transfer it, then report on it.</li>
+    <li>Review the role rules, database records, and how stock stays correct.</li>
+    <li>Use the endpoint list and demo checklist as presentation prompts.</li>
+  </ol>
+  <div class="callout">
+    <strong>One-sentence summary:</strong> This project is a warehouse inventory API that records what was ordered, received, moved, counted, and issued, while keeping a current stock balance and a permanent movement history.
+  </div>
+  <h3>Quick contents</h3>
+  <ol>
+    <li>Purpose and boundaries</li>
+    <li>Technology and architecture</li>
+    <li>Users and permissions</li>
+    <li>Business workflows</li>
+    <li>Every API feature</li>
+    <li>Database models and relationships</li>
+    <li>How stock integrity works</li>
+    <li>Validation, security, and errors</li>
+    <li>Reports and alerts</li>
+    <li>Project files and configuration</li>
+    <li>Tests and evidence</li>
+    <li>Run instructions, demo plan, glossary, and speaking notes</li>
+  </ol>
+  <p class="small">This guide explains the code that exists in the repository. It does not claim that features absent from the source—such as a separate dashboard, barcode scanner, or multi-company access—are implemented.</p>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">01 · Big picture</div>
+  <h2>What problem does it solve?</h2>
+  <p>A warehouse needs to know what products it has, where goods came from, what has been sent out, and how much remains. A spreadsheet can be overwritten or become inconsistent. This system stores each business record in a database and provides controlled API operations for changing and reading those records.</p>
+  <h3>What it can do</h3>
+  <ul>
+    <li>Maintain warehouses, bins, products, categories, units, suppliers, and user accounts.</li>
+    <li>Create purchase orders and receive goods against those orders.</li>
+    <li>Issue stock, transfer it between warehouses, and correct counts with a reason.</li>
+    <li>Show current balances and the history behind those balances.</li>
+    <li>Warn managers about low stock and recorded expiry dates.</li>
+    <li>Give administrators warehouse valuation and product movement analysis.</li>
+  </ul>
+  <h3>What the user sees</h3>
+  <p>The project is a backend REST API. Its included Swagger UI is a browser-based page for reading endpoint descriptions and trying API requests. There is no separate custom inventory dashboard in this repository.</p>
+  <h3>Important boundaries</h3>
+  <ul>
+    <li>Stock balance is tracked for a <strong>product in a warehouse</strong>. It is not a separate quantity for each bin.</li>
+    <li>A receipt line names a bin, and the system saves that bin on the receipt. The aggregate balance model is still warehouse/product, not warehouse/bin/product.</li>
+    <li>Expiry is stored on the warehouse/product balance row; this is not a lot- or batch-level expiry system.</li>
+    <li>The system exposes API endpoints. It does not contain a customer-facing web front end.</li>
+  </ul>
+  <div class="callout warning"><strong>Useful presentation honesty:</strong> Explain what the code does, not what a full warehouse platform might do. For example, say “the receipt records a bin” rather than “the system maintains bin-level stock balances.”</div>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">02 · Technology</div>
+  <h2>Technology and architecture</h2>
+  <table>
+    <thead><tr><th>Technology</th><th>Plain-language job</th><th>Where it appears</th></tr></thead>
+    <tbody>
+      <tr><td>Python</td><td>Language used to implement the application and tests.</td><td><code>app/</code>, <code>tests/</code>, <code>migrations/</code></td></tr>
+      <tr><td>FastAPI</td><td>Receives HTTP requests, routes them to functions, validates input, and returns JSON.</td><td><code>app/main.py</code>, <code>app/routers/</code></td></tr>
+      <tr><td>Pydantic</td><td>Checks input and shapes API responses using declared schemas.</td><td><code>app/schemas.py</code></td></tr>
+      <tr><td>SQLAlchemy</td><td>Maps Python model classes to database tables and runs database queries.</td><td><code>app/models/</code>, <code>app/db.py</code></td></tr>
+      <tr><td>PostgreSQL</td><td>Stores durable business records and enforces database-level rules.</td><td>Configured connection; real test database</td></tr>
+      <tr><td>Alembic</td><td>Applies versioned changes to the database structure.</td><td><code>migrations/</code></td></tr>
+      <tr><td>JWT + Argon2</td><td>JWTs prove a login; Argon2 stores passwords as one-way hashes.</td><td><code>app/security.py</code></td></tr>
+      <tr><td>Swagger UI</td><td>Interactive API documentation served locally by the app.</td><td><code>/docs</code>, <code>app/static/vendor/</code></td></tr>
+      <tr><td>Pytest</td><td>Runs automated checks against the API and PostgreSQL.</td><td><code>tests/</code></td></tr>
+    </tbody>
+  </table>
+  <h3>Request path</h3>
+  <div class="diagram">Browser / API client
+        ↓ HTTP request
+FastAPI route → input schema + authentication / role checks
+        ↓
+Business logic → SQLAlchemy session → PostgreSQL
+        ↓
+Commit only when the operation is valid
+        ↓
+JSON response (or a clear HTTP error)</div>
+  <p>The database session is provided to a request and closed afterward. A write route first checks the request and business rules, then commits. If a database operation fails before commit, the session's uncommitted transaction is rolled back when it closes.</p>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">03 · People and access</div>
+  <h2>Roles and permissions</h2>
+  <p>Every normal API action requires a logged-in user except the health check and the documentation pages. The token identifies a user; the application looks up that user on each request and checks the user's current active status and role.</p>
+  <table>
+    <thead><tr><th>Role</th><th>Typical responsibility</th><th>Examples of allowed actions</th></tr></thead>
+    <tbody>
+      <tr><td><strong>ADMIN</strong></td><td>Set up and maintain users and master data; see administrative reports.</td><td>Create and deactivate users; manage catalog and warehouses; valuation and movement reports.</td></tr>
+      <tr><td><strong>WAREHOUSE_MANAGER</strong></td><td>Manage buying and warehouse-level controls for their assigned home warehouse.</td><td>Create/close/cancel purchase orders; adjust stock; transfer stock; set expiry; see reorder/expiry alerts.</td></tr>
+      <tr><td><strong>STORE_CLERK</strong></td><td>Record receiving and issue operations for their home warehouse.</td><td>Receive goods against orders; issue stock; read permitted order and stock information.</td></tr>
+    </tbody>
+  </table>
+  <h3>Scope checks</h3>
+  <ul>
+    <li>Managers and clerks need an assigned, active home warehouse for warehouse operations.</li>
+    <li>Purchase orders are listed and retrieved only within the user's home warehouse.</li>
+    <li>A clerk receiving goods must use a purchase order and a bin in that same home warehouse.</li>
+    <li>A manager's transfer must start at their home warehouse and go to a different active warehouse.</li>
+    <li>A non-admin can list bins only for their own warehouse.</li>
+    <li>The balance and ledger query endpoints accept any authenticated user and offer warehouse/product filters. They do not apply a home-warehouse-only filter in their route implementation.</li>
+  </ul>
+  <h3>Authentication in simple words</h3>
+  <ol>
+    <li>The user sends an email and password to <code>POST /auth/login</code>.</li>
+    <li>The app verifies the password against its Argon2 hash and returns a signed bearer token.</li>
+    <li>The caller sends that token in the <code>Authorization: Bearer …</code> header.</li>
+    <li>The API validates the token and reloads the user record. A deactivated user loses access even if their token has not expired.</li>
+  </ol>
+  <div class="callout"><strong>Presentation tip:</strong> A role answers “what kind of action may this user perform?” The home warehouse answers “which warehouse does that action apply to?”</div>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">04 · Workflow</div>
+  <h2>End-to-end example: receiving goods</h2>
+  <p>Suppose the warehouse needs 10 boxes of a product. This is the main story to use in a presentation.</p>
+  <ol>
+    <li><strong>Prepare master data.</strong> An administrator creates the warehouse, storage bin, supplier, product category, unit of measure, and product.</li>
+    <li><strong>Create an order.</strong> A manager creates a purchase order for a supplier, with one or more product lines and quantities/prices. The order belongs to the manager's home warehouse and starts <code>OPEN</code>.</li>
+    <li><strong>Receive part of the order.</strong> A clerk posts a Goods Received Note (GRN), with the purchase-order line, received quantity, and a bin in the home warehouse.</li>
+    <li><strong>Update records together.</strong> The app increases the PO line's received quantity, creates the GRN and its item, increases the stock balance, and writes a positive <code>RECEIPT</code> ledger entry.</li>
+    <li><strong>Update the order status.</strong> If some amount remains, the order becomes <code>PARTIAL</code>. When every line is fully received, it becomes <code>CLOSED</code>.</li>
+    <li><strong>Use the stock.</strong> A clerk can issue goods against a requisition; a manager can transfer stock or record a physical-count adjustment.</li>
+    <li><strong>Review.</strong> Users can inspect the balance and history; managers see alerts; administrators see reports.</li>
+  </ol>
+  <div class="diagram">Supplier → Purchase Order → PO lines
+                               ↓
+                           GRN + GRN lines
+                               ↓
+                     Stock balance + ledger</div>
+  <h3>Purchase-order status meanings</h3>
+  <table>
+    <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>OPEN</code></td><td>Created and not yet partly received.</td></tr>
+      <tr><td><code>PARTIAL</code></td><td>Some quantity received; at least one line still has outstanding quantity.</td></tr>
+      <tr><td><code>CLOSED</code></td><td>Marked finished, either after all quantities arrive or by a manager's close action.</td></tr>
+      <tr><td><code>CANCELLED</code></td><td>Cancelled before partial receipts; a cancelled order cannot receive goods.</td></tr>
+    </tbody>
+  </table>
+  <p>A manager can explicitly close an order even if it has remaining quantities. A partially received order cannot be cancelled; the implementation asks the manager to close it instead, preserving the receipt history.</p>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">05 · Workflow</div>
+  <h2>Stock operations</h2>
+  <h3>Issue</h3>
+  <p>A clerk records stock leaving the home warehouse, with a product, positive requested quantity, and requisition number. The ledger stores the quantity as a negative number. If the stock would go below zero, the API rejects the operation with <code>409 Conflict</code>.</p>
+  <h3>Transfer</h3>
+  <p>A manager transfers a positive quantity from their home warehouse to a different active warehouse. The system writes two linked entries: a negative <code>TRANSFER_OUT</code> at the source and a positive <code>TRANSFER_IN</code> at the destination. Both share one generated transfer reference and are committed as one transaction.</p>
+  <h3>Physical-count adjustment</h3>
+  <p>A manager enters the counted quantity and a reason. The app compares that count with the current balance and records only the difference as an <code>ADJUSTMENT</code>. The reason is mandatory. A count equal to the current balance creates no entry; the API responds with a conflict instead of writing a zero movement.</p>
+  <h3>Expiry date</h3>
+  <p>A manager can set or clear the expiry date on a product's warehouse balance. Setting a date is rejected when there is no stock in that position. The date is not separately recorded in the stock ledger.</p>
+  <h3>Example ledger arithmetic</h3>
+  <div class="diagram">Receive 10     +10   balance 10
+Issue 2         -2   balance  8
+Transfer out 3  -3   balance  5
+Adjustment +1   +1   balance  6
+                         ↑
+The ledger's running sum explains the balance.</div>
+  <p>The balance is the fast “how much now?” answer. The ledger is the “how did we get here?” answer. Each successful movement stores the resulting balance and a sequence number as well as the signed quantity change.</p>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">06 · API reference</div>
+  <h2>Every API feature: accounts and catalog</h2>
+  <p><span class="pill">Admin</span> Admin only · <span class="pill">Manager</span> Warehouse manager · <span class="pill">Clerk</span> Store clerk · <span class="pill">Signed-in</span> Any active authenticated user. All listed routes are implemented in the repository.</p>
+  <h3>Authentication and users</h3>
+  <table>
+    <thead><tr><th>Method and path</th><th>Access</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>POST /auth/login</code></td><td>Public</td><td>Verify login details and issue a bearer token.</td></tr>
+      <tr><td><code>GET /auth/me</code></td><td>Signed-in</td><td>Return the current user's safe profile (not password hash).</td></tr>
+      <tr><td><code>GET /users</code></td><td>Admin</td><td>List users with pagination.</td></tr>
+      <tr><td><code>POST /users</code></td><td>Admin</td><td>Create an account and securely hash its password.</td></tr>
+      <tr><td><code>PATCH /users/{user_id}/deactivate</code></td><td>Admin</td><td>Disable a user; the active admin cannot disable itself.</td></tr>
+    </tbody>
+  </table>
+  <h3>Master data</h3>
+  <table>
+    <thead><tr><th>Feature</th><th>Read</th><th>Create / update / other</th></tr></thead>
+    <tbody>
+      <tr><td>Categories</td><td><code>GET /categories</code> Signed-in</td><td><code>POST /categories</code>, <code>PUT /categories/{category_id}</code> Admin</td></tr>
+      <tr><td>Units of measure</td><td><code>GET /uoms</code> Signed-in</td><td><code>POST /uoms</code>, <code>PUT /uoms/{uom_id}</code> Admin</td></tr>
+      <tr><td>Products</td><td><code>GET /products</code>, <code>GET /products/{product_id}</code> Signed-in</td><td><code>POST /products</code>, <code>PUT /products/{product_id}</code>, <code>DELETE /products/{product_id}</code> Admin (delete is a soft archive)</td></tr>
+      <tr><td>Suppliers</td><td><code>GET /suppliers</code> Signed-in</td><td><code>POST /suppliers</code>, <code>PUT /suppliers/{supplier_id}</code> Admin</td></tr>
+      <tr><td>Warehouses</td><td><code>GET /warehouses</code> Signed-in</td><td><code>POST /warehouses</code>, <code>PUT /warehouses/{warehouse_id}</code> Admin</td></tr>
+      <tr><td>Bins</td><td><code>GET /warehouses/{warehouse_id}/bins</code> Home warehouse or Admin</td><td><code>POST /warehouses/{warehouse_id}/bins</code>, <code>PUT /warehouses/{warehouse_id}/bins/{bin_id}</code> Admin</td></tr>
+    </tbody>
+  </table>
+  <p>Product search can filter by partial SKU, partial name, and category, and is paginated. SKU, warehouse code, bin code, and UOM code are normalized to uppercase in write routes. Products are archived by setting <code>is_deleted</code>; their historical stock records are not physically removed.</p>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">06 · API reference</div>
+  <h2>Every API feature: purchasing and stock</h2>
+  <h3>Purchase orders and receiving</h3>
+  <table>
+    <thead><tr><th>Method and path</th><th>Access</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>POST /purchase-orders</code></td><td>Manager</td><td>Create a purchase order with one or more unique product lines.</td></tr>
+      <tr><td><code>GET /purchase-orders</code></td><td>Manager or Clerk</td><td>List home-warehouse orders; optional status/supplier filters and pagination.</td></tr>
+      <tr><td><code>GET /purchase-orders/{order_id}</code></td><td>Manager or Clerk</td><td>Read an order and its lines, if it belongs to the home warehouse.</td></tr>
+      <tr><td><code>PATCH /purchase-orders/{order_id}/close</code></td><td>Manager</td><td>Close an order; a repeated close is accepted.</td></tr>
+      <tr><td><code>PATCH /purchase-orders/{order_id}/cancel</code></td><td>Manager</td><td>Cancel an order unless it is partially received or already final.</td></tr>
+      <tr><td><code>POST /grns</code></td><td>Clerk</td><td>Receive goods against an open/partial home-warehouse order.</td></tr>
+    </tbody>
+  </table>
+  <h3>Stock</h3>
+  <table>
+    <thead><tr><th>Method and path</th><th>Access</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>POST /stock/issue</code></td><td>Clerk</td><td>Issue stock with a requisition reference.</td></tr>
+      <tr><td><code>POST /stock/transfer</code></td><td>Manager</td><td>Move stock between warehouses with paired history entries.</td></tr>
+      <tr><td><code>POST /stock/adjust</code></td><td>Manager</td><td>Set stock to a physical count, recording a reason and the difference.</td></tr>
+      <tr><td><code>PUT /stock/expiry/{product_id}</code></td><td>Manager</td><td>Set or clear the warehouse/product expiry date.</td></tr>
+      <tr><td><code>GET /stock/balance</code></td><td>Signed-in</td><td>Read current quantity by product/warehouse; filter and paginate.</td></tr>
+      <tr><td><code>GET /stock/ledger</code></td><td>Signed-in</td><td>Read movement history; filter by product, warehouse, dates; paginate.</td></tr>
+    </tbody>
+  </table>
+  <p>The stock query endpoints use a maximum page size of 100. Date filters use <code>from</code> and <code>to</code>; the selected end date includes the whole day. If only one product is requested in the balance query, warehouses with no balance row are returned as zero quantities.</p>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">06 · API reference</div>
+  <h2>Every API feature: alerts and reports</h2>
+  <table>
+    <thead><tr><th>Method and path</th><th>Access</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>GET /alerts/reorder</code></td><td>Manager</td><td>List non-archived products at the home warehouse whose stock is below their reorder level.</td></tr>
+      <tr><td><code>GET /alerts/expiry</code></td><td>Manager</td><td>List positive stock whose recorded expiry is past or within the configured look-ahead window.</td></tr>
+      <tr><td><code>GET /reports/valuation</code></td><td>Admin</td><td>Estimate inventory value by warehouse using current quantity × current product unit cost.</td></tr>
+      <tr><td><code>GET /reports/movement-analysis?from=…&amp;to=…</code></td><td>Admin</td><td>Sum issued quantities in a date range and classify products as FAST, MEDIUM, or SLOW.</td></tr>
+    </tbody>
+  </table>
+  <h3>Additional application routes</h3>
+  <table>
+    <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>/</code></td><td>Redirects the browser to the API documentation.</td></tr>
+      <tr><td><code>/docs</code></td><td>Serves locally bundled Swagger UI.</td></tr>
+      <tr><td><code>/docs/oauth2-redirect</code></td><td>OAuth helper page used by Swagger UI.</td></tr>
+      <tr><td><code>/openapi.json</code></td><td>FastAPI's generated machine-readable API description.</td></tr>
+      <tr><td><code>/health</code></td><td>Runs a small database check and reports whether PostgreSQL can be reached.</td></tr>
+      <tr><td><code>/static/…</code></td><td>Serves the local Swagger UI CSS, JavaScript, and favicon.</td></tr>
+    </tbody>
+  </table>
+  <h3>How to describe reports accurately</h3>
+  <ul>
+    <li><strong>Reorder:</strong> strict “below” comparison; stock equal to the reorder level is not listed.</li>
+    <li><strong>Expiry:</strong> “EXPIRED” means before today's UTC date. “EXPIRING” includes today and dates through the configured cutoff.</li>
+    <li><strong>Valuation:</strong> a current estimate from balances and the product's current unit cost; it is not a historical accounting valuation.</li>
+    <li><strong>Movement:</strong> measures issued quantity, not receipts or transfers. Default cutoffs are fast at 20 units or more and slow at 5 or fewer; settings can change these values.</li>
+  </ul>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">07 · Data model</div>
+  <h2>Database models: reference data and accounts</h2>
+  <p>Each model class maps to a PostgreSQL table. An ID identifies a row. A foreign key points to a related row. A unique constraint prevents duplicate values in the specified place.</p>
+  <table>
+    <thead><tr><th>Model / table</th><th>What it represents</th><th>Key links or rules</th></tr></thead>
+    <tbody>
+      <tr><td><code>Warehouse</code> / <code>warehouses</code></td><td>A warehouse site with code, name, city, and active flag.</td><td>Unique warehouse code. Users, bins, orders, stock, and ledger entries refer to it.</td></tr>
+      <tr><td><code>Bin</code> / <code>bins</code></td><td>A named storage location inside a warehouse.</td><td>Bin code is unique within one warehouse.</td></tr>
+      <tr><td><code>Category</code> / <code>categories</code></td><td>A product grouping.</td><td>Unique category name; referenced by products.</td></tr>
+      <tr><td><code>UOM</code> / <code>uoms</code></td><td>A unit of measure (for example, each or kg).</td><td>Unique code; referenced by products.</td></tr>
+      <tr><td><code>Product</code> / <code>products</code></td><td>SKU, name, category, UOM, reorder level, unit cost, archive flag.</td><td>Unique SKU; reorder level and cost cannot be negative. Archive is soft deletion.</td></tr>
+      <tr><td><code>Supplier</code> / <code>suppliers</code></td><td>Supplier name and contact details, payment terms, active flag.</td><td>Used by purchase orders. No supplier delete endpoint.</td></tr>
+      <tr><td><code>User</code> / <code>users</code></td><td>Email, password hash, full name, role, optional warehouse, active flag.</td><td>Unique email. Non-admin users need a warehouse. Role must be one of the defined values.</td></tr>
+    </tbody>
+  </table>
+  <h3>Code files for the model layer</h3>
+  <ul>
+    <li><code>app/models/base.py</code>: common SQLAlchemy declarative base.</li>
+    <li><code>app/models/enums.py</code>: the role, purchase-order status, and movement labels.</li>
+    <li><code>app/models/__init__.py</code>: central exports for model classes.</li>
+    <li>One model file per business table (for example, <code>product.py</code> defines <code>Product</code>).</li>
+  </ul>
+  <p>Foreign keys and database constraints are the final safety net: even if a caller bypassed the API, PostgreSQL still enforces important relationships and numeric rules.</p>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">07 · Data model</div>
+  <h2>Database models: orders and stock</h2>
+  <table>
+    <thead><tr><th>Model / table</th><th>What it represents</th><th>Key links or rules</th></tr></thead>
+    <tbody>
+      <tr><td><code>PurchaseOrder</code> / <code>purchase_orders</code></td><td>Order number, supplier, warehouse, status, date, total.</td><td>Has PO line items. Status and nonnegative total are constrained.</td></tr>
+      <tr><td><code>POItem</code> / <code>po_items</code></td><td>Product, ordered quantity, received quantity, unit price.</td><td>One product per order; ordered amount positive; received amount cannot exceed ordered amount. Outstanding = ordered − received.</td></tr>
+      <tr><td><code>GRN</code> / <code>grns</code></td><td>Goods Received Note header: number, order, receiver, time, optional remark.</td><td>Owns receipt item rows; number is unique.</td></tr>
+      <tr><td><code>GRNItem</code> / <code>grn_items</code></td><td>Received quantity for a PO line and product, stored at a bin.</td><td>Quantity must be positive; a PO line appears at most once in one GRN.</td></tr>
+      <tr><td><code>StockBalance</code> / <code>stock_balances</code></td><td>Current aggregate quantity, sequence, and optional expiry by warehouse/product.</td><td>Only one row per warehouse/product; quantity cannot be negative.</td></tr>
+      <tr><td><code>StockLedger</code> / <code>stock_ledger</code></td><td>One permanent record per successful stock movement.</td><td>Signed quantity, resulting balance, reason/reference, user, timestamp, sequence; append-only database trigger.</td></tr>
+    </tbody>
+  </table>
+  <h3>Relationships at a glance</h3>
+  <div class="diagram">Category ─┐
+           ├→ Product ← Unit of measure
+Warehouse → Bin
+Supplier + Warehouse → Purchase Order → PO Items
+                                  ↓
+                           GRN → GRN Items → Bin
+                                  ↓
+                           Stock Balance
+                                  ↓ changes
+                            Stock Ledger
+User → creates a receipt, issue, transfer, or adjustment</div>
+  <h3>Why store both a balance and a ledger?</h3>
+  <ul>
+    <li>The balance table makes everyday “how much is on hand?” queries quick.</li>
+    <li>The ledger gives a traceable explanation of each change.</li>
+    <li>Each ledger record's <code>balance_after</code> can be compared with the running sum of changes.</li>
+    <li>The database prevents ledger rows from being updated, deleted, or truncated.</li>
+  </ul>
+  <p>Quantities use decimal numeric columns (three decimal places); money uses numeric columns with two decimal places. This avoids binary floating-point rounding in stock and purchase calculations.</p>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">08 · Correctness</div>
+  <h2>How the system keeps stock correct</h2>
+  <h3>One controlled movement helper</h3>
+  <p><code>app/stock.py</code> contains the shared low-level stock logic. It locks the balance row, calculates the new quantity, rejects a negative result, increments the per-position sequence, updates the balance, and stages the matching ledger row. The business route commits after the whole operation is ready.</p>
+  <h3>Concurrency: two requests at the same time</h3>
+  <p>Without a lock, two clerks could both read “1 left,” both issue it, and produce a negative or inconsistent result. The app creates or finds each balance row and locks it for update before changing it. For transfers, it locks source and destination positions in a stable sorted order. Competing requests wait and then see the latest committed values.</p>
+  <h3>Transactions: all of the operation or none</h3>
+  <p>A transfer has two sides. If the outgoing side succeeds but the incoming side fails, committing only half would lose stock. Both sides are part of one database transaction. A failure before commit rolls the operation back so neither side remains.</p>
+  <h3>Duplicate receipt race</h3>
+  <p>Two simultaneous receipts must not both consume the same outstanding PO quantity. The app locks the same purchase-order row before reading and updating its line quantities. The tests verify that only one competing over-limit receipt succeeds.</p>
+  <h3>Database guardrails</h3>
+  <ul>
+    <li>Unique constraints stop duplicate codes and duplicate position records.</li>
+    <li>Check constraints stop negative balances, invalid PO quantities, invalid roles/statuses, and incorrectly signed movement rows.</li>
+    <li>The ledger trigger rejects <code>UPDATE</code>, <code>DELETE</code>, and <code>TRUNCATE</code>.</li>
+    <li>Indexes support common filters, such as ledger product/time and purchase-order warehouse/status.</li>
+  </ul>
+  <div class="callout"><strong>Good presentation line:</strong> “The app does not just calculate a new stock number. It locks the position, updates the balance, writes the matching audit entry, and commits the complete business operation together.”</div>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">09 · Input and security</div>
+  <h2>Validation and HTTP errors</h2>
+  <p><code>app/schemas.py</code> defines what request and response data should look like. The shared input configuration rejects unknown fields, trims surrounding whitespace on strings by default, and supports returning SQLAlchemy objects through declared response models.</p>
+  <h3>Examples of validation</h3>
+  <ul>
+    <li>Email fields must be valid email addresses.</li>
+    <li>Passwords for created users must be 12–128 characters; password whitespace is preserved.</li>
+    <li>Quantities and IDs must be positive where required; prices and reorder levels cannot be negative.</li>
+    <li>Decimal fields specify maximum precision and decimal places.</li>
+    <li>Requests cannot include arbitrary extra fields.</li>
+    <li>A purchase order and a GRN must contain at least one line, with no more than 100 lines.</li>
+    <li>Pagination starts at page 1, uses page size 1–100, and validates filter IDs.</li>
+    <li>Date filters reject a start date later than the end date.</li>
+  </ul>
+  <h3>Common response codes</h3>
+  <table>
+    <thead><tr><th>Code</th><th>Plain meaning</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td><code>200</code></td><td>Request succeeded.</td><td>Read or update an existing record.</td></tr>
+      <tr><td><code>201</code></td><td>New record/operation created.</td><td>Create an order or post an issue.</td></tr>
+      <tr><td><code>204</code></td><td>Succeeded with no response body.</td><td>Archive a product.</td></tr>
+      <tr><td><code>401</code></td><td>Missing, invalid, expired token or invalid login.</td><td>Login again with valid credentials.</td></tr>
+      <tr><td><code>403</code></td><td>Logged-in user lacks the role or warehouse access.</td><td>A clerk tries to create a purchase order.</td></tr>
+      <tr><td><code>404</code></td><td>Requested row does not exist in the relevant scope.</td><td>Unknown product or order outside home warehouse.</td></tr>
+      <tr><td><code>409</code></td><td>Business rule or database conflict.</td><td>Insufficient stock or duplicate unique code.</td></tr>
+      <tr><td><code>422</code></td><td>Input does not meet the schema or business rules.</td><td>Negative quantity, missing warehouse, invalid date range.</td></tr>
+      <tr><td><code>503</code></td><td>Health route cannot reach PostgreSQL.</td><td>Database service is unavailable.</td></tr>
+    </tbody>
+  </table>
+  <p>Validation error details report field locations and messages without echoing the submitted values. Database integrity errors are returned as a general conflict message rather than raw database text.</p>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">09 · Input and security</div>
+  <h2>Security and configuration</h2>
+  <h3>Security controls visible in the code</h3>
+  <ul>
+    <li><strong>Password storage:</strong> Argon2 hashes are stored, not plain-text passwords.</li>
+    <li><strong>Login response:</strong> unknown users are checked against a dummy hash as well, helping avoid a simple timing difference between unknown and known users.</li>
+    <li><strong>Signed token:</strong> JWT uses HS256 and checks issuer, audience, required claims, and expiration.</li>
+    <li><strong>Deactivation takes effect:</strong> every authenticated request reloads the user and checks that the account is active.</li>
+    <li><strong>Least-privilege endpoints:</strong> route dependencies enforce roles; business logic also checks warehouse ownership.</li>
+    <li><strong>Browser headers:</strong> middleware sets anti-sniffing, frame, and referrer headers; it adds a content policy to docs/static routes and disables caching on API responses.</li>
+    <li><strong>Local docs assets:</strong> Swagger UI JavaScript and CSS are served from the repository instead of being loaded from a public CDN.</li>
+    <li><strong>Bootstrap config:</strong> setup creates the local <code>.env</code> with restrictive file permissions where supported by the OS.</li>
+  </ul>
+  <h3>Configuration keys</h3>
+  <table>
+    <thead><tr><th>Setting family</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>WAREHOUSE_DB_HOST/PORT/NAME/USER/PASSWORD</code></td><td>PostgreSQL connection. Use a dedicated database name.</td></tr>
+      <tr><td><code>WAREHOUSE_JWT_SECRET</code></td><td>Private signing secret, at least 32 bytes.</td></tr>
+      <tr><td><code>WAREHOUSE_TOKEN_MINUTES</code></td><td>Access-token life; default is 60 minutes.</td></tr>
+      <tr><td><code>WAREHOUSE_FAST_UNITS</code> / <code>WAREHOUSE_SLOW_UNITS</code></td><td>Movement-report thresholds; defaults are 20 and 5.</td></tr>
+      <tr><td><code>WAREHOUSE_EXPIRY_DAYS</code></td><td>Days ahead to warn about recorded expiry; default is 30.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout warning"><strong>Keep private:</strong> The repository's <code>.env.example</code> contains placeholders. Real database passwords and JWT secrets belong in a private local <code>.env</code> or environment variables, never in the presentation or source control.</div>
+  <p class="small">Security is described from the code inspected. The README notes that a separate assignment “common guidelines” document is needed to verify any controls defined only there; that document is not included in this repository.</p>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">10 · Reports</div>
+  <h2>Alerts and reporting logic</h2>
+  <h3>Reorder alert</h3>
+  <p>For the manager's home warehouse, compare stock quantity with each active product's reorder level. The alert lists rows only when quantity is strictly less than that level. Products without a balance row are treated as having zero stock.</p>
+  <h3>Expiry alert</h3>
+  <p>Look at home-warehouse balance rows with quantity above zero and an expiry date. Dates before today's UTC date are marked <code>EXPIRED</code>. Dates from today through the configured look-ahead cutoff are marked <code>EXPIRING</code>. Rows without an expiry date are not included.</p>
+  <h3>Warehouse valuation</h3>
+  <p>For each warehouse, add up the value of its stock using <code>quantity × product.unit_cost</code>, rounded to two decimal places. The report includes warehouses even when their value is zero. It uses today's unit costs; it does not reconstruct the cost that was current when each movement happened.</p>
+  <h3>Movement analysis</h3>
+  <p>For the requested inclusive date range, total only <code>ISSUE</code> quantities (the route reverses the negative ledger sign to show positive units issued). It classifies totals as <code>FAST</code>, <code>SLOW</code>, or <code>MEDIUM</code>. The thresholds are configurable. Archived products are normally excluded, but a product with an issue during the date range can still appear so that its movement is not hidden.</p>
+  <h3>Limits to keep in mind</h3>
+  <ul>
+    <li>These are API responses, not visual charts or dashboards.</li>
+    <li>Expiry warnings depend on a date recorded on the aggregate product/warehouse balance, not a batch-level date.</li>
+    <li>Reorder and expiry alerts are warehouse-manager operations and are scoped to that manager's active home warehouse.</li>
+    <li>Valuation and movement analysis require an administrator role.</li>
+  </ul>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">11 · Code map</div>
+  <h2>What the project files do</h2>
+  <h3>Application</h3>
+  <table>
+    <thead><tr><th>File or folder</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>app/main.py</code></td><td>Creates FastAPI app, connects route modules, static files, response headers, exception handlers, docs and health endpoint.</td></tr>
+      <tr><td><code>app/config.py</code></td><td>Loads and validates settings from <code>.env</code>/environment and builds the PostgreSQL URL.</td></tr>
+      <tr><td><code>app/db.py</code></td><td>Creates the cached SQLAlchemy engine and request-scoped database session.</td></tr>
+      <tr><td><code>app/schemas.py</code></td><td>Request validation rules and response data shapes.</td></tr>
+      <tr><td><code>app/security.py</code></td><td>Password hashing, JWT creation/validation, current-user lookup, and role dependencies.</td></tr>
+      <tr><td><code>app/queries.py</code></td><td>Shared pagination, row lookup, home-warehouse, and date-range helpers.</td></tr>
+      <tr><td><code>app/stock.py</code></td><td>Shared balance locking and balance-plus-ledger movement logic.</td></tr>
+      <tr><td><code>app/setup.py</code></td><td>Interactive local configuration, optional database creation, migration, and bootstrap admin setup.</td></tr>
+      <tr><td><code>app/exceptions.py</code></td><td>Defines a base warehouse application exception; current route flows primarily use FastAPI's HTTP exceptions.</td></tr>
+      <tr><td><code>app/models/</code></td><td>Database entities, shared model base, enum values, and model exports.</td></tr>
+      <tr><td><code>app/routers/</code></td><td>HTTP route groups: accounts, catalog, inbound, inventory, and reports.</td></tr>
+      <tr><td><code>app/static/vendor/</code></td><td>Bundled Swagger UI assets, vendor notices, and license information.</td></tr>
+    </tbody>
+  </table>
+  <h3>Route modules</h3>
+  <ul>
+    <li><code>accounts.py</code>: login, current profile, user listing/creation/deactivation.</li>
+    <li><code>catalog.py</code>: category, UOM, product, supplier, warehouse, and bin operations.</li>
+    <li><code>inbound.py</code>: purchase orders, order status transitions, and goods receipts.</li>
+    <li><code>inventory.py</code>: issues, transfers, adjustments, expiry dates, balances, and ledger queries.</li>
+    <li><code>reports.py</code>: reorder/expiry alerts, valuation, and movement analysis.</li>
+  </ul>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">11 · Code map</div>
+  <h2>Database, docs, and root files</h2>
+  <h3>Model file-by-file map</h3>
+  <table>
+    <thead><tr><th>Model file</th><th>Defines</th></tr></thead>
+    <tbody>
+      <tr><td><code>base.py</code></td><td>Shared SQLAlchemy <code>Base</code>.</td></tr>
+      <tr><td><code>enums.py</code></td><td><code>Role</code>, <code>POStatus</code>, and <code>Movement</code> allowed labels.</td></tr>
+      <tr><td><code>warehouse.py</code>, <code>bin.py</code></td><td>Warehouses and within-warehouse storage-bin identifiers.</td></tr>
+      <tr><td><code>category.py</code>, <code>uom.py</code></td><td>Product classification and unit-of-measure reference data.</td></tr>
+      <tr><td><code>product.py</code>, <code>supplier.py</code>, <code>user.py</code></td><td>Items, supplier contacts, and user accounts.</td></tr>
+      <tr><td><code>purchase_order.py</code>, <code>po_item.py</code></td><td>Purchase order header, lines, and outstanding-quantity calculation.</td></tr>
+      <tr><td><code>grn.py</code>, <code>grn_item.py</code></td><td>Receipt header and received lines.</td></tr>
+      <tr><td><code>stock_balance.py</code>, <code>stock_ledger.py</code></td><td>Current quantities and immutable movement history.</td></tr>
+      <tr><td><code>__init__.py</code></td><td>Conveniently re-exports all model classes and enum types.</td></tr>
+    </tbody>
+  </table>
+  <h3>Database and tests</h3>
+  <ul>
+    <li><code>alembic.ini</code>: tells Alembic where the migration scripts live.</li>
+    <li><code>migrations/env.py</code>: connects Alembic to app settings and model metadata.</li>
+    <li><code>migrations/versions/0001_create_warehouse_tables.py</code>: creates tables, indexes, constraints, and the append-only ledger trigger. Its downgrade reverses those objects.</li>
+    <li><code>migrations/script.py.mako</code>: template Alembic uses to create a new migration file.</li>
+    <li><code>tests/conftest.py</code>: provisions an isolated generated PostgreSQL test database, applies the real migration, creates test data, and cleans up the generated database.</li>
+    <li><code>tests/helpers.py</code>: shared helpers for orders, receipts, stock, and adjustments.</li>
+    <li><code>tests/test_accounts_catalog.py</code>: authentication, accounts, catalog, and product archive behavior.</li>
+    <li><code>tests/test_endpoint_edges.py</code>: docs/health, paging, read-only behavior, and inactive entities.</li>
+    <li><code>tests/test_inbound_inventory.py</code>: PO/receipt transitions, stock operations, and reports.</li>
+    <li><code>tests/test_transactions.py</code>: concurrent requests, rollback, ledger consistency, and database guards.</li>
+  </ul>
+  <h3>Other root files</h3>
+  <ul>
+    <li><code>README.md</code>: installation, setup, run commands, troubleshooting, and project decisions.</li>
+    <li><code>requirements.txt</code> and <code>requirements-dev.txt</code>: application and test dependencies.</li>
+    <li><code>pytest.ini</code>: points pytest at the tests folder.</li>
+    <li><code>.env.example</code>: documents setting names with placeholders; it is not the real secret file.</li>
+    <li><code>.gitignore</code>: excludes local secrets, virtual environments, caches, coverage output, and compiled Python files.</li>
+    <li><code>docs/</code>: code walkthrough, acceptance evidence, source reference, Swagger walkthrough, and this presentation guide.</li>
+  </ul>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">12 · Quality</div>
+  <h2>How the project is tested</h2>
+  <p>The test suite calls the real FastAPI app and uses PostgreSQL. It creates a new database with a random test-only name, applies the project's migration, and drops that generated database at the end. It does not use the configured application database for test records.</p>
+  <h3>What the tests exercise</h3>
+  <ul>
+    <li>Health route, Swagger/OpenAPI, static docs assets, and unauthenticated access.</li>
+    <li>Valid, invalid, expired, and inactive-user login behavior; role checks; user creation and deactivation.</li>
+    <li>Master-data creation/update, product search, pagination, and soft archive.</li>
+    <li>PO validation, partial/full receipts, status changes, warehouse scope, and over-receipt rejection.</li>
+    <li>Issue, adjustment, transfer, expiry, balance, ledger, and report calculations.</li>
+    <li>Database-level append-only ledger and nonnegative balance constraints.</li>
+    <li>Concurrency: two requests competing for the last unit and two receipts competing for the same outstanding amount.</li>
+    <li>Atomic rollback: a deliberately failed transfer must leave both warehouse balances and history unchanged.</li>
+    <li>Recomputing running ledger quantities and checking each stored balance/sequence.</li>
+  </ul>
+  <h3>Run tests</h3>
+  <div class="diagram">.\.venv\Scripts\python.exe -m pytest -q</div>
+  <p>The acceptance documentation also gives an optional coverage command. Tests require a running PostgreSQL server and a login role permitted to create/drop the uniquely named test database.</p>
+  <div class="callout warning"><strong>Do not run tests casually against important data:</strong> the fixture targets a generated name and cleans it up, but a working PostgreSQL setup is still required. Follow the README and test configuration.</div>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">13 · Run it</div>
+  <h2>How to start the application</h2>
+  <p>The repository README recommends Python 3.11 or 3.12 and PostgreSQL 17. First install Python/PostgreSQL and make sure the database service is running.</p>
+  <h3>Windows PowerShell from the repository folder</h3>
+  <div class="diagram">py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m app.setup
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000</div>
+  <p>Setup asks for PostgreSQL connection details and an application admin email/password. It writes local settings, creates the database if requested, applies the Alembic migration, and creates the first admin user. The database password and the application's login password are two different credentials.</p>
+  <h3>Open Swagger</h3>
+  <p>With the server running, open <code>http://127.0.0.1:8000/docs</code>. Select <strong>Authorize</strong> and log in using the admin email and application password. Use <strong>Authorize → Logout</strong> to switch roles for a demo.</p>
+  <h3>Useful setup concepts</h3>
+  <ul>
+    <li><strong>Migration:</strong> applies the versioned schema to the selected database.</li>
+    <li><strong>Bootstrap admin:</strong> creates the first account allowed to manage users and catalog records.</li>
+    <li><strong>Database server password:</strong> lets the app connect to PostgreSQL; it does not log the user into the API.</li>
+    <li><strong>Application password:</strong> used at the API login screen; stored as an Argon2 hash.</li>
+    <li><strong>JWT secret:</strong> signs login tokens; it must stay private and stable while tokens are in use.</li>
+  </ul>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">14 · Present it</div>
+  <h2>Suggested 5-minute demo</h2>
+  <table>
+    <thead><tr><th>Time</th><th>Show</th><th>Say</th></tr></thead>
+    <tbody>
+      <tr><td>0:00–0:30</td><td>Open <code>/docs</code> and <code>/health</code>.</td><td>“This is a FastAPI backend. Swagger is its interactive API screen; health also checks PostgreSQL.”</td></tr>
+      <tr><td>0:30–1:15</td><td>Show models/tables or an existing category/product.</td><td>“Products connect reference data such as category and unit; warehouses and users provide operational context.”</td></tr>
+      <tr><td>1:15–2:15</td><td>Create an order, then receive a partial quantity as a clerk.</td><td>“Receiving connects to a PO line, checks the quantity and warehouse bin, then updates the order, balance, and ledger together.”</td></tr>
+      <tr><td>2:15–3:00</td><td>Read the PO status, balance, and ledger.</td><td>“The balance is the current total; the ledger is the signed history that explains it.”</td></tr>
+      <tr><td>3:00–3:45</td><td>Issue a valid amount, then try too much.</td><td>“An issue is a negative movement. The API rejects a transaction that would make stock negative.”</td></tr>
+      <tr><td>3:45–4:30</td><td>Show a transfer or adjustment, then view paired/history entries.</td><td>“A transfer has linked outgoing and incoming entries; both sides commit together.”</td></tr>
+      <tr><td>4:30–5:00</td><td>Show reorder alert or admin valuation/report.</td><td>“Role checks separate warehouse actions from administrator reports.”</td></tr>
+    </tbody>
+  </table>
+  <h3>Prepare data in advance</h3>
+  <ul>
+    <li>Confirm PostgreSQL is running and the app starts before the presentation.</li>
+    <li>Use synthetic/demo records, not real supplier, user, password, or inventory data.</li>
+    <li>Create category, unit, warehouse, bins, supplier, product, manager, and clerk.</li>
+    <li>Have the manager create a purchase order; keep the order and product IDs handy.</li>
+    <li>Practice switching accounts through Swagger's Authorize dialog.</li>
+    <li>Know how to explain a 401 (not logged in), 403 (not permitted), 409 (business conflict), and 422 (invalid input).</li>
+  </ul>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">15 · Review</div>
+  <h2>Questions you may be asked</h2>
+  <h3>Why have both a balance table and a ledger?</h3>
+  <p>The balance gives a quick current answer. The ledger gives the explainable history. Keeping both avoids recalculating every current quantity from all old movements on every read, while still keeping a movement trail.</p>
+  <h3>How do you stop negative stock?</h3>
+  <p>The app locks the position, checks the result before saving, and the database also has a nonnegative constraint. Competing operations wait for the lock and then see the latest balance.</p>
+  <h3>How do you avoid a half-completed transfer?</h3>
+  <p>Both stock legs are part of one transaction. If either fails, neither is committed. A test intentionally forces a failure after the first leg and verifies rollback.</p>
+  <h3>Why does the user have a warehouse?</h3>
+  <p>It scopes manager and clerk operations. Orders, receipts, and transfers are checked against the user's active home warehouse.</p>
+  <h3>Can you delete a product?</h3>
+  <p>The API archives it by setting a flag instead of physically deleting it. This keeps references and history intact. Archived products are excluded from normal product search.</p>
+  <h3>Is the expiry date tracked for every lot?</h3>
+  <p>No. The expiry date is stored on the overall product/warehouse balance row. Lot-level quantities and dates are not modeled in this version.</p>
+  <h3>Does this include a dashboard?</h3>
+  <p>No separate dashboard is in this repository. Swagger UI is the included web page for trying the REST API.</p>
+  <h3>How do you know the behavior works?</h3>
+  <p>Automated tests call the API against a fresh PostgreSQL test database and check business rules, role failures, concurrency, rollback, and database constraints.</p>
+  <h3>What is an area for future improvement?</h3>
+  <p>Possible extensions—if requirements call for them—include lot/batch-level stock and expiry, bin-level balances, a dedicated front end, richer audit/reporting, and integration with external systems. These are ideas, not current features.</p>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">16 · Quick reference</div>
+  <h2>Glossary and memory sheet</h2>
+  <table>
+    <thead><tr><th>Term</th><th>Simple meaning</th></tr></thead>
+    <tbody>
+      <tr><td>API</td><td>A set of request paths that another program or Swagger can call.</td></tr>
+      <tr><td>REST</td><td>A common style for APIs using HTTP methods such as GET, POST, PUT, and PATCH.</td></tr>
+      <tr><td>SKU</td><td>A unique code used to identify a product.</td></tr>
+      <tr><td>UOM</td><td>Unit of measure, such as each, box, or kilogram.</td></tr>
+      <tr><td>PO</td><td>Purchase order: a request to a supplier for products and quantities.</td></tr>
+      <tr><td>PO item</td><td>One product line on a purchase order.</td></tr>
+      <tr><td>GRN</td><td>Goods Received Note: a record of what arrived against an order.</td></tr>
+      <tr><td>Balance</td><td>Current aggregate quantity for a product in a warehouse.</td></tr>
+      <tr><td>Ledger</td><td>Append-only record of the changes that explain a balance.</td></tr>
+      <tr><td>Foreign key</td><td>A database link that points to another table's row.</td></tr>
+      <tr><td>Transaction</td><td>A group of database changes that succeed or roll back together.</td></tr>
+      <tr><td>Row lock</td><td>A temporary database lock that keeps simultaneous updates from overwriting one another.</td></tr>
+      <tr><td>Migration</td><td>A versioned script that creates or changes database structure.</td></tr>
+      <tr><td>JWT</td><td>A signed token carried with API requests after login.</td></tr>
+      <tr><td>Soft delete/archive</td><td>Mark a record inactive for normal use without erasing its database row.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <strong>Remember these five points:</strong>
+    <ol>
+      <li>It is a REST API; Swagger is the included interface.</li>
+      <li>Roles are Admin, Warehouse Manager, and Store Clerk.</li>
+      <li>Receiving starts with a PO and produces stock plus history.</li>
+      <li>Every movement updates a balance and appends a ledger entry.</li>
+      <li>Locks, transactions, constraints, and tests protect correctness.</li>
+    </ol>
+  </div>
+  <p class="end">Prepared from the repository's README, docs, application source, models, Alembic migration, and tests. The project README identifies a separate common-guidelines document as necessary for verifying any controls defined only in that document.</p>
+</section>
+
+<section class="chapter">
+  <div class="eyebrow">Closing</div>
+  <h2>30-second presentation summary</h2>
+  <div class="callout">
+    <p>“This project is a warehouse inventory REST API built with FastAPI, SQLAlchemy, and PostgreSQL. It manages catalog data, purchase orders, receipts, and stock movements. It separates access into administrator, warehouse manager, and store clerk roles. For stock changes, it keeps a current balance and an append-only ledger, and it uses database transactions and row locks to prevent inconsistent concurrent updates. Swagger UI makes the API easy to demonstrate, and PostgreSQL-backed tests cover business rules, access control, and failure cases.”</p>
+  </div>
+  <p class="lead">If you can explain one receipt, one stock movement, and why the ledger exists, you can explain the heart of the project.</p>
+</section>
+
+</body>
+</html>
