@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.config import ENV_FILE, ROOT, get_settings
 from app.db import get_engine
 from app.models import Role, User
-from app.schemas import UserCreate
+from app.Schemas import UserCreate
 from app.security import passwords
 
 

@@ -8,7 +8,7 @@ from app.config import get_settings
 from app.db import Database
 from app.models import Movement, Product, StockBalance, StockLedger, Warehouse
 from app.queries import home_warehouse, ledger_dates
-from app.schemas import ExpiryOut, MovementAnalysisOut, ReorderOut, ValuationOut
+from app.Schemas import ExpiryOut, MovementAnalysisOut, ReorderOut, ValuationOut
 from app.security import Admin, Manager
 
 
