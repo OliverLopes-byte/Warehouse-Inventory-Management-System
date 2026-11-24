@@ -7,12 +7,13 @@ class Role(StrEnum):
     STORE_CLERK = "STORE_CLERK"
 
 
-class POStatus(StrEnum):
+class POStatus(StrEnum):   #purchase order
     OPEN = "OPEN"
     PARTIAL = "PARTIAL"
     CLOSED = "CLOSED"
     CANCELLED = "CANCELLED"
-
+#Goods Receipt Note
+#stockledger is a append only diary
 
 class Movement(StrEnum):
     RECEIPT = "RECEIPT"

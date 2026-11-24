@@ -34,7 +34,7 @@ def me(user: CurrentUser):
 @router.get("/users", response_model=Page[UserOut], tags=["Users"])
 def list_users(db: Database, admin: Admin, page: PageNumber = 1, size: PageSize = 25):
     return page_of(db, select(User).order_by(User.email, User.id), page, size)
-
+#imp
 
 @router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED, tags=["Users"])
 def create_user(body: UserCreate, db: Database, admin: Admin):
