@@ -1,4 +1,10 @@
-# Endpoint learning playbook
+# Endpoint learning playbook — Version 1 (historical monolith guide)
+
+> **Current guide:** The active application has been migrated to five
+> microservices. Use [`ENDPOINT_LEARNING_PLAYBOOK_V2.md`](./ENDPOINT_LEARNING_PLAYBOOK_V2.md)
+> for current endpoint explanations. This Version 1 document describes the
+> former monolith; route/source links below may refer to removed code and must
+> not be treated as current implementation evidence.
 
 This file is the reusable guide for learning one API operation at a time. It
 records the project's current request path and route inventory so a
