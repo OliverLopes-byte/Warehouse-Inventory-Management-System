@@ -1,120 +1,127 @@
-# Warehouse Ledger
+# Warehouse Inventory Management System
 
-A beginner-readable implementation of **Case Study 06 — Warehouse Inventory Management System**. The project contains a FastAPI REST API, SQLAlchemy models, an Alembic migration, locally bundled Swagger UI, and a real PostgreSQL test suite. Swagger UI is the only web interface.
+The application is split into five local FastAPI processes and three independent
+PostgreSQL databases. The service boundaries and exact schema are documented in
+[`prompts/MICROSERVICES_IMPLEMENTATION_HANDOFF.md`](prompts/MICROSERVICES_IMPLEMENTATION_HANDOFF.md)
+and [`prompts/MICROSERVICES_PROJECT_METADATA.json`](prompts/MICROSERVICES_PROJECT_METADATA.json).
 
-| Open this | Use it for |
-| --- | --- |
-| This README | Install Python and PostgreSQL, set up the database, start the app |
-| [Swagger walkthrough](docs/SWAGGER_WALKTHROUGH.md) | Demonstrate the 22 stories in a reproducible order |
-| [Code walkthrough](docs/CODE_WALKTHROUGH.md) | Explain a request line by line and understand each module |
-| [Source line reference](docs/SOURCE_LINE_REFERENCE.md) | Locate and explain the actual classes, functions and Swagger integration |
-| [Acceptance evidence](docs/ACCEPTANCE.md) | Trace requirements to endpoints, tests and implementation decisions |
+| Process | Port | Data |
+|---|---:|---|
+| API Gateway | 8000 | None |
+| Auth | 8001 | `warehouse_identity` |
+| Catalog | 8002 | `warehouse_catalog` |
+| Warehouse | 8003 | `warehouse_operations` |
+| Reports | 8004 | None |
 
-## First run
+Auth, Catalog, and Warehouse own separate databases. Reports is a read-only
+API composition service, and the Gateway only routes requests and hosts the
+shared Swagger UI. Database IDs crossing service boundaries are validated via
+service APIs and are not database foreign keys.
 
-### 1. Install the prerequisites
+## Local setup
 
-- Install **Python 3.11 or 3.12** and **PostgreSQL 17**. Testing used Python 3.12.14 and PostgreSQL 17.12.
-- Install **pgAdmin 4** if you want a graphical way to connect to PostgreSQL. PostgreSQL is the server. pgAdmin is the tool that lets you inspect it.
-- Start the PostgreSQL server. The default host for a server on the same device is `127.0.0.1` and the default port is `5432`. Check your installation for its actual values.
-- In pgAdmin, register the server if it is absent. Right-click **Servers → Register → Server**. Enter any display name, then enter your host, port, PostgreSQL role and password on the **Connection** tab. The maintenance database is normally `postgres`. The installer often creates a role called `postgres`.
+Install Python 3.11+ and PostgreSQL. Create the databases and three distinct
+database roles using pgAdmin or your PostgreSQL administration workflow:
 
-### 2. Unzip and install the Python dependencies
+- `warehouse_identity` owned/readable by the Auth database role
+- `warehouse_catalog` owned/readable by the Catalog database role
+- `warehouse_operations` owned/readable by the Warehouse database role
 
-Open a terminal in the extracted **warehouse-inventory** folder. It should contain `requirements.txt` and `alembic.ini`.
+Copy each process's `.env.example` to `.env`, set its local database URL where
+applicable, and generate a random JWT secret and shared service token. Keep
+these local files private; `.env` and virtual environments are ignored by Git.
+The same `AUTH_SERVICE_TOKEN` value must be configured in Auth, Catalog,
+Warehouse, and Reports.
 
-**Windows PowerShell**
+Generate values in PowerShell with `py -3.12 -c "import secrets; print(secrets.token_urlsafe(48))"`.
+Use one generated value for Auth's `JWT_SECRET`, and a separate shared value
+for `AUTH_SERVICE_TOKEN`.
+
+Create one isolated environment per process and install its own requirements.
+For example, in PowerShell:
 
 ```powershell
-py -3.12 -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements.txt
-.venv\Scripts\python.exe -m app.setup
-.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+py -3.12 -m venv auth-service\.venv
+auth-service\.venv\Scripts\python.exe -m pip install -r auth-service\requirements.txt
+Copy-Item auth-service\.env.example auth-service\.env
+Push-Location auth-service
+.venv\Scripts\alembic -c alembic.ini upgrade head
+.venv\Scripts\python.exe bootstrap_admin.py
+.venv\Scripts\uvicorn app.main:app --host 127.0.0.1 --port 8001
 ```
 
-If your installed version is Python 3.11, use `py -3.11` in the first command.
+Leave Auth running in that terminal. In a separate PowerShell terminal for
+each remaining process, run its setup and startup commands from the repository
+root. Edit the copied `.env` before starting; only Catalog and Warehouse need
+the migration command shown below.
 
-**macOS or Linux**
+**Catalog**
 
-```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python -m app.setup
-.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```powershell
+py -3.12 -m venv catalog-service\.venv
+catalog-service\.venv\Scripts\python.exe -m pip install -r catalog-service\requirements.txt
+Copy-Item catalog-service\.env.example catalog-service\.env
+# Set CATALOG_DATABASE_URL and AUTH_SERVICE_TOKEN in catalog-service\.env first.
+Push-Location catalog-service
+.venv\Scripts\alembic -c alembic.ini upgrade head
+.venv\Scripts\uvicorn app.main:app --host 127.0.0.1 --port 8002
 ```
 
-### 3. Answer the setup prompts
+**Warehouse**
 
-1. Enter your PostgreSQL host, port, database name and login role. The default new database is `warehouse_inventory`.
-2. Enter the **PostgreSQL password** for that login role. This is the password for the database server you connected to in pgAdmin. The terminal hides what you type.
-3. Enter an application admin email and choose a separate **application password** of at least 12 characters. Use these to authorize in Swagger.
-4. Keep the terminal running after the Uvicorn command starts. Open [Swagger UI](http://127.0.0.1:8000/docs). The root URL redirects there as well.
-
-On first run, `app.setup` writes a local `.env` with your connection settings and a newly generated JWT secret. It connects to the maintenance database, creates the project database if needed, runs the Alembic migration, and creates your admin if that email is new. Running setup again with the same active admin email preserves the existing password.
-
-### If you prefer to create the database in pgAdmin
-
-1. Connect to your PostgreSQL server. Right-click **Databases → Create → Database**. Name it `warehouse_inventory` or a dedicated name of your choice. Choose the role the app will use as the owner, or grant that role the required schema privileges.
-2. Run `python -m app.setup --skip-create` using your virtual environment's Python. Enter the name you chose if prompted, or verify `WAREHOUSE_DB_NAME` in your local `.env`. The command still applies the migration and creates the admin.
-3. Refresh pgAdmin and expand **Databases → warehouse_inventory → Schemas → public → Tables**. The migration creates the tables and `alembic_version`.
-4. Use Query Tool on **warehouse_inventory** to inspect records. Post inventory changes through the API so that the balance and ledger remain synchronized.
-
-```sql
-SELECT warehouse_id, product_id, quantity, position_seq
-FROM stock_balances
-ORDER BY warehouse_id, product_id;
-
-SELECT warehouse_id, product_id, position_seq, movement_type,
-       qty_delta, balance_after, reference_id, created_by
-FROM stock_ledger
-ORDER BY warehouse_id, product_id, position_seq;
+```powershell
+py -3.12 -m venv warehouse-service\.venv
+warehouse-service\.venv\Scripts\python.exe -m pip install -r warehouse-service\requirements.txt
+Copy-Item warehouse-service\.env.example warehouse-service\.env
+# Set WAREHOUSE_DATABASE_URL and AUTH_SERVICE_TOKEN in warehouse-service\.env first.
+Push-Location warehouse-service
+.venv\Scripts\alembic -c alembic.ini upgrade head
+.venv\Scripts\uvicorn app.main:app --host 127.0.0.1 --port 8003
 ```
 
-### Where the connection lives
+**Reports**
 
-[app/config.py](app/config.py) loads environment settings and builds the PostgreSQL URL. [app/db.py](app/db.py) creates the SQLAlchemy engine and provides one session per request. [.env.example](.env.example) lists the supported keys. Real credentials belong in the local `.env` or process environment. Restart the app after changing settings.
-
-| Key | What to put there |
-| --- | --- |
-| `WAREHOUSE_DB_HOST` / `WAREHOUSE_DB_PORT` | The PostgreSQL server address and port from pgAdmin |
-| `WAREHOUSE_DB_NAME` | Your dedicated database name |
-| `WAREHOUSE_DB_USER` / `WAREHOUSE_DB_PASSWORD` | Your PostgreSQL role and its password |
-| `WAREHOUSE_JWT_SECRET` | A random secret generated by setup. For manual setup, use `python -c "import secrets; print(secrets.token_urlsafe(48))"` and keep the result private |
-| `WAREHOUSE_TOKEN_MINUTES` | Access-token lifetime. Default 60 minutes |
-| `WAREHOUSE_FAST_UNITS` / `WAREHOUSE_SLOW_UNITS` | Fast and slow cutoffs for issued quantities in the selected date range. Defaults 20 and 5 |
-| `WAREHOUSE_EXPIRY_DAYS` | Look-ahead window for recorded expiry warnings. Default 30 UTC days |
-
-On another device, install the prerequisites and repeat the setup with that device's PostgreSQL credentials. This creates a fresh database. To keep the same stored records, arrange access to the same PostgreSQL server or use a deliberately authorized pgAdmin backup and restore. The downloaded ZIP contains application source and setup files.
-
-## Start using the app
-
-In Swagger UI, select **Authorize** and enter the initial admin's application email and password. Add a category and unit, two warehouses and a bin, a supplier, and products. Create a **warehouse manager** and a **store clerk** assigned to the same home warehouse. Use **Authorize → Logout** to switch roles. The [Swagger walkthrough](docs/SWAGGER_WALKTHROUGH.md) gives example data, expected results, and the exact order to follow.
-
-## Run the acceptance tests
-
-Use the same virtual environment and a PostgreSQL login role permitted to create a database. The fixture makes a fresh, uniquely named `warehouse_test_...` database, applies the actual migration, and drops that generated database at teardown. It uses synthetic rows and leaves the configured application database and its records alone.
-
-```text
-python -m pip install -r requirements-dev.txt
-python -m pytest --cov=app --cov-report=term-missing --cov-fail-under=70
+```powershell
+py -3.12 -m venv reports-service\.venv
+reports-service\.venv\Scripts\python.exe -m pip install -r reports-service\requirements.txt
+Copy-Item reports-service\.env.example reports-service\.env
+# Set AUTH_SERVICE_TOKEN in reports-service\.env to the shared service token.
+Push-Location reports-service
+.venv\Scripts\uvicorn app.main:app --host 127.0.0.1 --port 8004
 ```
 
-Substitute the virtual environment's Python executable for `python` if you have not activated it. See [acceptance evidence](docs/ACCEPTANCE.md) for the observed results and concurrency proof.
+**API Gateway**
 
-## Troubleshooting
+```powershell
+py -3.12 -m venv api-gateway\.venv
+api-gateway\.venv\Scripts\python.exe -m pip install -r api-gateway\requirements.txt
+Copy-Item api-gateway\.env.example api-gateway\.env
+Push-Location api-gateway
+.venv\Scripts\python.exe main.py
+```
 
-| Symptom | Check this |
-| --- | --- |
-| Dependency installation fails for `psycopg-binary` or tries to build `pydantic-core` | Use Python 3.11 or 3.12 as listed above, then recreate `.venv` with that interpreter before installing requirements |
-| PostgreSQL connection refused | Start PostgreSQL and check the host and port from the server registration in pgAdmin |
-| PostgreSQL authentication failed | Check the database role and password in `.env`. Application credentials are separate |
-| Permission denied when creating a database | Create it in pgAdmin with a suitable owner, then run setup with `--skip-create` |
-| API reports a table is missing | Run `python -m app.setup --skip-create` against the intended database to apply the migration |
-| Address already in use | Pick a different Uvicorn port, such as `--port 8001`, and open the matching browser address |
-| Swagger calls return 401 | Open **Authorize**, use your application email in **username**, enter your app password, and authorize again |
-| Swagger calls return 403 | Check the role and home warehouse required for that endpoint |
-| A write returns 409 | Read the detail. Examples include insufficient stock, exceeding PO outstanding quantity, and a duplicate code |
+Only Auth, Catalog, and Warehouse have migrations. Apply them only to the
+three newly provisioned databases after checking each service's `.env`; do not
+point them at the former monolith database. The bootstrap command prompts for
+the initial admin password and does not store a default credential.
 
-## Assignment decisions
+Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) for the shared
+Swagger UI. Each process also has `/health`; database services report their
+own database reachability, while Gateway and Reports report their own process
+status.
 
-The supplied case study defines the warehouse rules and refers to a separate common guidelines document for ten mandatory security controls. That document is still required for the exact control mapping. [Acceptance evidence](docs/ACCEPTANCE.md) lists the implemented security rules, the pending document, and the decisions used for ambiguous parts of the brief.
+## Scope
+
+This repository's active application code is the five-process microservices
+implementation. The former monolith's Python source, root migration, root
+dependency manifests, and test configuration have been removed. Existing
+monolith walkthroughs and other documentation remain as historical reference;
+their old source links no longer point to active code.
+
+The root `.env` files, `.gitignore`, and `alembic.ini` are retained from the
+monolith as requested. They are not used by the microservices; use each
+service's own environment example, requirements, and Alembic configuration.
+The local root `.env` is ignored and must not be committed.
+
+This implementation intentionally has no Docker/Compose, deployment or CI
+configuration, broker, monitoring stack, test suite, or reporting database.

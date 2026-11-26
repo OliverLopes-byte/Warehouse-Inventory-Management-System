@@ -1,0 +1,393 @@
+# CURRENT DECISION: USE THE COMPANION METADATA SCHEMA
+
+The exact approved table/column specification is in
+[MICROSERVICES_PROJECT_METADATA.json](./MICROSERVICES_PROJECT_METADATA.json);
+transaction, migration, and edge-case rules are in
+[MICROSERVICES_IMPLEMENTATION_HANDOFF.md](./MICROSERVICES_IMPLEMENTATION_HANDOFF.md).
+Those files supersede conflicting details below. In particular, preserve the
+current names `users.warehouse_id`, `INTEGER` IDs, and current model columns;
+do not add a fourth/reporting database, extra timestamp columns, or optional
+tables unless separately approved. The final design has five processes but
+only three database-owning services; Reports is stateless.
+
+# Microservices Data Ownership and Transaction Design
+
+This is the proposed logical schema for the future PostgreSQL implementation.
+It does not create databases or migrate existing data. The complete
+PostgreSQL-specific DDL, exact indexes, constraints, and Alembic revisions
+should be written and reviewed during implementation.
+
+See [the blueprint](./MICROSERVICES_BLUEPRINT.md) for service responsibilities
+and [the project structure](./MICROSERVICES_PROJECT_STRUCTURE.md) for
+configuration and local run instructions.
+
+## 1. Three logical PostgreSQL databases
+
+For a beginner-sized local deployment, the databases may live on the **same
+PostgreSQL server** while remaining logically separate and protected by
+different database users:
+
+| Database | Owner | Runtime database user |
+|---|---|---|
+| `warehouse_identity` | Identity service | `identity_app` |
+| `warehouse_catalog` | Catalog service | `catalog_app` |
+| `warehouse_operations` | Warehouse Operations service | `operations_app` |
+
+Each runtime user gets access only to its own database. Use a separate,
+privileged migration account for Alembic; do not run the application as the
+PostgreSQL superuser. Separate databases on one server provide ownership
+boundaries, but do not provide the same failure or resource isolation as
+separate database servers. Separate servers are not needed for the classroom
+version.
+
+Think of the PostgreSQL server as one computer running the database software,
+and each named database as its own collection of tables. The proposed table
+split is:
+
+```text
+warehouse_identity:
+  users
+
+warehouse_catalog:
+  categories, uoms, products, suppliers, warehouses, bins
+
+warehouse_operations:
+  purchase_orders, po_items, grns, grn_items,
+  stock_balances, stock_ledger
+```
+
+All three can use the existing PostgreSQL server and port 5432, but each
+service gets its own database URL and restricted PostgreSQL role. The gateway
+does not get a database.
+
+## 2. Local foreign keys versus remote IDs
+
+Use ordinary primary keys and foreign keys **inside each service database**.
+Never define a database foreign key that crosses a service boundary.
+
+Examples of remote IDs stored as ordinary columns:
+
+- `users.home_warehouse_id` in Identity refers to Catalog's warehouse ID.
+- `products.category_id` and `products.uom_id` in Catalog are local foreign
+  keys because Category, UOM, and Product all belong to Catalog.
+- `purchase_orders.supplier_id` and `purchase_orders.warehouse_id` in
+  Warehouse Operations refer to Catalog IDs; they are not database foreign
+  keys.
+- `po_items.product_id`, `grn_items.bin_id`, `stock_balances.product_id`, and
+  `stock_balances.warehouse_id` refer to Catalog IDs, not local foreign keys.
+- `stock_ledger.created_by` records the Identity user ID as an audit value; it
+  is not a foreign key into Identity's database.
+- Within Warehouse Operations, `po_items.po_id`, `grns.po_id`,
+  `grn_items.grn_id`, and `grn_items.po_item_id` remain local foreign keys.
+
+These IDs are stable references, not proof that the remote record still exists
+or is active. Before accepting a new operation, call the owning service's
+internal API to check the required record and permission. Preserve historical
+references when a catalog item, warehouse, or account is deactivated. Prefer
+soft-delete/deactivation over hard deletion, and never reuse IDs.
+
+For historical documents, store useful snapshots where the original value
+matters: PO line unit price, and optionally SKU/name at order time. This avoids
+changing a historical document's meaning when catalog display names or prices
+change. The authoritative current product/warehouse data still belongs to
+Catalog.
+
+Validate that products, suppliers, bins, and warehouses are active when a new
+PO is created. If a product or supplier is archived after a PO is created, the
+existing PO and its receipts should remain processable and readable; archival
+must not rewrite history. A GRN must still verify that its bin belongs to the
+PO's warehouse. Do not deactivate a warehouse that has stock, open POs, or
+active user assignments until those dependencies have been resolved.
+
+## 3. Identity database
+
+### `users`
+
+| Column | Suggested PostgreSQL type | Rules |
+|---|---|---|
+| `id` | `BIGINT GENERATED BY DEFAULT AS IDENTITY` | Primary key |
+| `email` | `VARCHAR(254)` | Required, unique, normalized to lowercase |
+| `password_hash` | `VARCHAR(255)` | Required bcrypt hash; never return it |
+| `full_name` | `VARCHAR(120)` | Required |
+| `role` | `VARCHAR(24)` | Required; `ADMIN`, `WAREHOUSE_MANAGER`, or `STORE_CLERK` |
+| `home_warehouse_id` | `BIGINT NULL` | Remote Catalog ID; required for manager/clerk, nullable for admin |
+| `is_active` | `BOOLEAN` | Required, default true |
+| `created_at`, `updated_at` | `TIMESTAMPTZ` | UTC timestamps |
+
+Add a unique index on `email` and an index on `home_warehouse_id`. Keep password
+hashes out of `UserOut` and all logs. `role` constraints should be enforced in
+the application and with PostgreSQL check constraints.
+
+The current monolith stores Argon2 password hashes, while the assignment
+requires bcrypt/Passlib for the new service. Existing hashes cannot be
+converted to bcrypt without the user's password. Before carrying accounts
+forward, choose either a password-reset cutover or temporary dual verification
+(verify the old Argon2 hash on login, then re-hash with bcrypt after a
+successful login). Do not try to reverse or bulk-convert hashes.
+
+Passlib's raw bcrypt has a 72-byte input limit. If retaining the current
+12-to-128-character password limit, use a reviewed Passlib bcrypt-based scheme
+that handles longer input (for example `bcrypt_sha256`) and verify its behavior
+before choosing it;
+otherwise reject passwords over 72 UTF-8 bytes at validation time. Never
+silently truncate a password.
+
+## 4. Catalog database
+
+### `categories`
+
+`id BIGINT GENERATED BY DEFAULT AS IDENTITY` primary key; `name VARCHAR(100)` required and unique.
+
+### `uoms`
+
+`id BIGINT GENERATED BY DEFAULT AS IDENTITY` primary key; `code VARCHAR(24)` required and unique;
+`description VARCHAR(120)` required.
+
+### `products`
+
+`id BIGINT GENERATED BY DEFAULT AS IDENTITY` primary key; `sku VARCHAR(40)` required and unique; `name
+VARCHAR(120)` required; `category_id BIGINT` and `uom_id BIGINT` local foreign
+keys; `reorder_level DECIMAL(14,3)` nonnegative; `unit_cost DECIMAL(12,2)`
+nonnegative; `is_deleted BOOLEAN` default false; UTC creation/update
+timestamps. Add indexes for category and UOM. Product deletion is archival:
+keep it available for historical references and exclude deleted products from
+new purchase orders and normal product search.
+
+### `suppliers`
+
+`id BIGINT GENERATED BY DEFAULT AS IDENTITY` primary key; name, email, phone, address, and payment terms;
+`is_active BOOLEAN`; UTC timestamps. Normalize/validate email and avoid
+hard-deleting a supplier referenced by an order.
+
+### `warehouses`
+
+`id BIGINT GENERATED BY DEFAULT AS IDENTITY` primary key; unique `code VARCHAR(24)`; name and city;
+`is_active BOOLEAN`; UTC timestamps.
+
+### `bins`
+
+`id BIGINT GENERATED BY DEFAULT AS IDENTITY` primary key; `warehouse_id BIGINT` local foreign key to
+`warehouses`; code; unique `(warehouse_id, code)`.
+
+All writes are Admin-only. Reads require a valid authenticated user; bin reads
+are limited to the caller's home warehouse unless the user is Admin.
+
+## 5. Warehouse Operations database
+
+### Purchase orders
+
+`purchase_orders`: `id BIGINT GENERATED BY DEFAULT AS IDENTITY` primary key; unique `po_no`; remote
+`supplier_id` and `warehouse_id`; status (`OPEN`, `PARTIAL`, `CLOSED`,
+`CANCELLED`); `ordered_on DATE`; `total_amount DECIMAL(26,2)`; UTC created/updated
+timestamps. Index `(warehouse_id, status)`.
+
+`po_items`: `id BIGINT GENERATED BY DEFAULT AS IDENTITY` primary key; local `po_id` foreign key; remote
+`product_id`; `ordered_qty DECIMAL(14,3) > 0`; `received_qty DECIMAL(14,3)`
+between zero and ordered quantity; `unit_price DECIMAL(12,2) >= 0`; optional
+SKU/name snapshots. Unique `(po_id, product_id)` if the business rule remains
+one line per product per order.
+
+### Goods receipt notes
+
+`grns`: `id BIGINT GENERATED BY DEFAULT AS IDENTITY` primary key; unique `grn_no`; local `po_id` foreign key;
+`received_by BIGINT` remote Identity user ID; `received_on TIMESTAMPTZ` UTC;
+optional remark.
+
+`grn_items`: `id BIGINT GENERATED BY DEFAULT AS IDENTITY` primary key; local `grn_id` and `po_item_id` foreign
+keys; remote `product_id` and `bin_id`; `qty DECIMAL(14,3) > 0`; unique
+`(grn_id, po_item_id)` if a PO line can occur only once per receipt.
+
+### Current balance
+
+`stock_balances`: `id BIGINT GENERATED BY DEFAULT AS IDENTITY` primary key; remote `product_id` and
+`warehouse_id`; `quantity DECIMAL(14,3) NOT NULL DEFAULT 0`; nonnegative check;
+`position_seq BIGINT NOT NULL DEFAULT 0`; optional `expiry_on DATE`; unique
+`(warehouse_id, product_id)`.
+
+There is one row per product/warehouse, including a zero row after the first
+operation. This is **not** a per-bin balance. If lot tracking is later required,
+replace this simple expiry field with explicit lot/batch rows and define how
+balance totals are derived.
+
+### Append-only ledger
+
+`stock_ledger`: `id BIGINT GENERATED BY DEFAULT AS IDENTITY` primary key; remote `product_id` and
+`warehouse_id`; movement type (`RECEIPT`, `ISSUE`, `TRANSFER_IN`,
+`TRANSFER_OUT`, `ADJUSTMENT`); signed `qty_delta DECIMAL(14,3)`;
+`reference_type` and `reference_id`; `balance_after DECIMAL(14,3)`;
+`position_seq BIGINT`; optional adjustment `reason`; remote `created_by`
+Identity ID; `created_at TIMESTAMPTZ` UTC.
+
+Constraints and indexes:
+
+- unique `(warehouse_id, product_id, position_seq)`;
+- positive quantity for `RECEIPT` and `TRANSFER_IN`;
+- negative quantity for `ISSUE` and `TRANSFER_OUT`;
+- nonzero adjustment with a nonblank reason;
+- nonnegative `balance_after` and positive sequence;
+- indexes for `(product_id, created_at, id)`, `(movement_type, created_at)`,
+  and `created_by`.
+
+Ledger corrections are new adjustment entries; never update or delete existing
+movement rows. Enforce this in API permissions and with database permissions:
+the runtime account should not have `UPDATE`, `DELETE`, or destructive DDL
+rights on `stock_ledger`. Keep schema migration credentials separate. The
+current PostgreSQL migration already installs an append-only trigger for
+updates, deletes, and truncates; retain an equivalent trigger in the Operations
+database, and keep the runtime account from changing schema objects or
+disabling triggers.
+
+### Optional idempotency table
+
+Add this small table before allowing gateways/clients to retry movement POSTs:
+
+`idempotency_records`: primary key; `actor_id BIGINT`; `route_key`; unique
+`(actor_id, route_key, idempotency_key)`; request hash; stored response
+reference/status; creation time. A repeated key with the same request returns
+the original result; the same key with a different request returns 409. Do not
+automatically retry non-idempotent POSTs until this or equivalent protection is
+implemented.
+
+## 6. Transactions across separate databases
+
+There is no shared foreign-key graph and no transaction spanning the three
+databases. That is intentional. The following rules keep the first version
+reliable:
+
+1. **Identity and Catalog own their writes.** Another service asks them for
+   current status through an internal HTTP endpoint; it never writes their
+   tables.
+2. **A Warehouse Operations transaction touches only its own database.**
+   Its remote-reference checks happen before the local transaction. If a
+   required check cannot be completed, return 503 and do not post partial
+   inventory data.
+3. **PO, GRN, balance, and ledger changes stay together.** They are all owned
+   by Warehouse Operations, so receipt can remain one PostgreSQL transaction.
+4. **Transfers stay local and atomic.** Lock source and destination balance
+   rows in a deterministic `(warehouse_id, product_id)` order, update both,
+   append both ledger rows with one transfer reference, and commit once.
+5. **Remote deactivation does not erase history.** A deactivated product or
+   supplier cannot be used for new orders; existing orders/ledger remain
+   readable. A warehouse with stock or active user assignments should not be
+   hard-deleted.
+6. **No two-phase commit.** If a future feature truly requires a business
+   update in two services, redesign the workflow as a saga with explicit
+   pending/completed states and compensating actions. Do not pretend two local
+   commits are atomic.
+
+### GRN workflow in detail
+
+1. Clerk submits a GRN through the gateway. Identity confirms the user is
+   active and provides the current role/home warehouse.
+2. Operations verifies the PO belongs to that home warehouse and is open or
+   partial. It verifies the bin belongs to the PO's warehouse. The product and
+   supplier were validated when the PO was created; later archival does not
+   block completion of that historical order.
+3. Operations begins a transaction and locks the PO row. This serializes
+   concurrent receipts against the same outstanding quantity.
+4. It checks each requested quantity against the locked PO line's outstanding
+   quantity, creates the GRN rows, obtains/locks affected balance positions in
+   sorted order, updates received quantities and stock quantities, and appends
+   receipt ledger rows.
+5. It updates PO status to `PARTIAL` or `CLOSED` and commits once. Any failure
+   before commit rolls back the PO, GRN, balances, and ledger together.
+
+If a client times out after the commit and retries, the request must not post a
+second receipt. Use unique GRN numbers plus an idempotency key and return the
+first result for a duplicate request.
+
+### Issue and transfer concurrency
+
+For two simultaneous issues of the final unit, both transactions must lock the
+same balance row with `SELECT ... FOR UPDATE` before checking quantity. The
+first can decrement and commit;
+the second then reads the committed quantity and receives 409. A database
+nonnegative constraint is a final guard, not a substitute for locking. The
+concurrency guarantee relies on PostgreSQL row locking; SQLite is not a
+substitute when this behavior is eventually verified.
+
+For a transfer, lock both source and destination positions in the same stable
+order in every code path to reduce deadlocks. If either ledger insert fails,
+the balance changes and both entries must roll back. The later acceptance
+check should inject a failure after the first leg and confirm both balances and
+ledger remain unchanged; test-file scaffolding is intentionally out of scope
+for the current structure proposal.
+
+## 7. Cross-service reads and reporting
+
+Do not issue SQL joins against another service's tables. Use an internal
+Catalog batch endpoint to validate/enrich a set of product, warehouse, or bin
+IDs. For small assignment data volumes, simple API composition is adequate:
+Operations queries its balances/ledger, then asks Catalog for the required
+names/costs. Put a short timeout and clear 503 behavior on these calls; avoid
+one request per row (N+1 network requests).
+
+Reorder thresholds come from Catalog products and are compared with
+Operations balances for the manager's home warehouse. Valuation combines
+Operations quantities with Catalog unit costs and warehouse names. Movement
+analysis can be computed entirely from the Operations ledger. If these
+cross-service reports later become slow or need availability during Catalog
+outages, consider a read model populated by events; that is a later
+optimization, not a starting requirement.
+
+If reliable events are introduced later, write the business change and an
+outbox event into the **same service database transaction**, then publish it
+asynchronously. Consumers must be idempotent because an event can be delivered
+more than once. Do not add a broker/outbox just to claim to use microservices.
+
+## 8. Moving data from the current monolith
+
+The current database and migration already use PostgreSQL. This is a data
+migration from one database into three new PostgreSQL databases, not a
+cross-database foreign-key migration. For a beginner-sized project, use a
+planned write freeze rather than trying to keep the old and new systems live
+in sync:
+
+1. Back up the current PostgreSQL database and record row counts.
+2. Create and migrate the three PostgreSQL databases before importing rows.
+3. Import Catalog master data first, then Identity users, then Operations
+   documents, balances, and ledger. Preserve numeric IDs when possible. If IDs
+   must change, create explicit old-to-new mapping files/tables and update
+   every remote reference through those mappings.
+4. Validate that every remote reference resolves through the owning service;
+   compare PO/GRN counts, ledger counts, transfer pairs, and per-position
+   running balances. Recompute each position's ledger balance and compare it
+   with `stock_balances`.
+5. If the old system contains balances with no corresponding ledger history,
+   do not invent movement rows. Record an explicit, approved opening adjustment
+   with a reason and actor according to the agreed migration policy.
+6. Route traffic to the new gateway only after checks pass. Keep the source
+   backup read-only for rollback/audit; do not dual-write to the monolith.
+
+Repeat the import against a disposable copy before the final cutover. A failed
+validation means stop and correct the import; do not patch balances directly
+to make totals look right.
+
+## 9. PostgreSQL and migration notes
+
+The current repository already uses PostgreSQL with SQLAlchemy's
+`postgresql+psycopg` driver. Keep that stack when splitting the databases:
+
+- Use `NUMERIC` for stock and currency, `TIMESTAMPTZ` for UTC instants, and
+  PostgreSQL identity columns for generated IDs.
+- The current PostgreSQL `INSERT ... ON CONFLICT` pattern can be retained for
+  creating missing balance rows, with a unique constraint on the position.
+- Keep balance changes and ledger inserts inside a single transaction using
+  PostgreSQL row locks (`SELECT ... FOR UPDATE`).
+- Keep Alembic migrations separate per service/database, even though all
+  services use PostgreSQL.
+- Retain the append-only ledger trigger and restrict runtime DB privileges;
+  verify the trigger and privileges using the actual runtime role before
+  acceptance.
+
+Pin and document the PostgreSQL major version. The current README uses
+PostgreSQL 17; use that version for local work unless the assignment specifies
+otherwise. Do not use SQLite as a substitute when row-locking or trigger
+behavior is eventually verified.
+
+References for implementation:
+
+- [SQLAlchemy PostgreSQL dialect](https://docs.sqlalchemy.org/en/20/dialects/postgresql.html) - PostgreSQL types, driver configuration, and dialect features.
+- [SQLAlchemy PostgreSQL `ON CONFLICT` support](https://docs.sqlalchemy.org/en/20/dialects/postgresql.html#insert-on-conflict-upsert) - dialect support for the balance-position upsert.
+- [PostgreSQL explicit locking](https://www.postgresql.org/docs/current/explicit-locking.html#LOCKING-ROWS) - row-level locks for concurrent stock updates.
+- [Microservices.io: Database per service](https://microservices.io/patterns/data/database-per-service.html) and [Transactional outbox](https://microservices.io/patterns/data/transactional-outbox.html) - ownership, cross-service query/transaction trade-offs, and reliable event publication if introduced later.

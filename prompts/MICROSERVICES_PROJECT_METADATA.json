@@ -1,0 +1,680 @@
+{
+  "metadata_version": 1,
+  "status": "implemented_pending_database_provisioning",
+  "project": "Warehouse Inventory Management System",
+  "source_of_truth": [
+    "MICROSERVICES_IMPLEMENTATION_HANDOFF.md",
+    "MICROSERVICES_PROJECT_METADATA.json",
+    "the five service folders and their independent migrations"
+  ],
+  "source_layout": {
+    "active_application_code": [
+      "api-gateway/",
+      "auth-service/",
+      "catalog-service/",
+      "warehouse-service/",
+      "reports-service/"
+    ],
+    "removed_legacy_code": [
+      "root app/",
+      "root migrations/",
+      "root requirements.txt",
+      "root requirements-dev.txt",
+      "root pytest.ini"
+    ],
+    "retained_legacy_configuration": [
+      "root .env and .env.example",
+      "root .gitignore",
+      "root alembic.ini"
+    ],
+    "legacy_documentation": "Retained monolith walkthroughs are historical references; their source links refer to removed code."
+  },
+  "supersedes": [
+    "MICROSERVICES_BLUEPRINT 1.md",
+    "MICROSERVICES_DATA_MODEL 1.md",
+    "MICROSERVICES_PROJECT_STRUCTURE 1.md"
+  ],
+  "decisions": {
+    "runnable_process_count": 5,
+    "services": [
+      "api-gateway",
+      "auth-service",
+      "catalog-service",
+      "warehouse-service",
+      "reports-service"
+    ],
+    "database_count": 3,
+    "database_per_service_exception": "reports-service is stateless and has no database so the design remains at exactly three databases.",
+    "report_service_rationale": "Existing reorder, expiry, valuation, and movement-analysis routes form the added read-only service. Keep PO/GRN and stock together to preserve transaction atomicity.",
+    "ids": "INTEGER, matching current models and user-ID range checks.",
+    "implementation_status": "implemented_pending_local_database_provisioning"
+  },
+  "runtime": {
+    "stack": [
+      "Python",
+      "FastAPI",
+      "SQLAlchemy",
+      "Alembic",
+      "PostgreSQL",
+      "psycopg"
+    ],
+    "postgresql_server_count": 1,
+    "database_names": [
+      "warehouse_identity",
+      "warehouse_catalog",
+      "warehouse_operations"
+    ],
+    "ports": {
+      "api-gateway": 8000,
+      "auth-service": 8001,
+      "catalog-service": 8002,
+      "warehouse-service": 8003,
+      "reports-service": 8004,
+      "postgresql": 5432
+    },
+    "gateway_prefixes": {
+      "auth-service": "/api/auth",
+      "catalog-service": "/api/catalog",
+      "warehouse-service": "/api/warehouse",
+      "reports-service": "/api/reports"
+    },
+    "swagger": {
+      "public_url": "http://localhost:8000/docs",
+      "owner": "api-gateway",
+      "mode": "one UI with selectable service OpenAPI definitions",
+      "static_assets": [
+        "api-gateway/static/favicon.png",
+        "api-gateway/static/vendor/swagger-ui-bundle.js",
+        "api-gateway/static/vendor/swagger-ui.css",
+        "api-gateway/static/vendor/LICENSE",
+        "api-gateway/static/vendor/NOTICE",
+        "api-gateway/static/vendor/README.md",
+        "api-gateway/static/vendor/swagger-ui-bundle.js.LICENSE.txt"
+      ],
+      "instruction": "Preserve the current bundled assets and attribution files when moving Swagger UI to the Gateway."
+    },
+    "health": "Each process has a simple /health endpoint. DB-owning services report own DB reachability; Gateway and Reports do not claim upstream readiness.",
+    "environment_policy": {
+      "each_process_has": [
+        ".env.example",
+        "local ignored .env",
+        "requirements.txt",
+        "local ignored .venv"
+      ],
+      "gateway_database": false,
+      "reports_database": false,
+      "commit_real_env": false,
+      "commit_virtualenv": false
+    }
+  },
+  "verification": {
+    "python_compilation": "passed_for_all_five_processes",
+    "app_import_and_openapi_generation": "passed_for_all_five_processes",
+    "offline_alembic_sql_generation": "passed_for_auth_catalog_and_warehouse",
+    "orm_table_counts": {
+      "auth-service": 1,
+      "catalog-service": 6,
+      "warehouse-service": 6
+    },
+    "http_smoke_checks": "passed_for_authentication_guards_gateway_docs_and_reports_health",
+    "input_validation_checks": "passed_for_whitespace_password_and_extra_field_cases",
+    "database_health_failure_bound": "503_within_3_3_seconds_for_all_database_services",
+    "report_archived_stock_and_product_limit_checks": "passed",
+    "databases_provisioned": false,
+    "migrations_applied": false,
+    "database_backed_workflows_verified": false,
+    "automated_test_suite_added_or_run": false
+  },
+  "service_ownership": [
+    {
+      "name": "api-gateway",
+      "database": null,
+      "responsibilities": [
+        "forward client requests by public path",
+        "forward bearer token and request context",
+        "serve one Swagger UI and selectable OpenAPI definitions"
+      ],
+      "must_not": [
+        "own business tables",
+        "issue tokens",
+        "contain authorization or stock business rules",
+        "connect to service databases"
+      ]
+    },
+    {
+      "name": "auth-service",
+      "database": "warehouse_identity",
+      "tables": [
+        "users"
+      ],
+      "responsibilities": [
+        "login and password verification",
+        "issue JWT with sub, iss, aud, iat, exp",
+        "user administration and deactivation",
+        "protected identity introspection"
+      ],
+      "http_routes": [
+        "POST /auth/login",
+        "GET /auth/me",
+        "GET /users",
+        "POST /users",
+        "PATCH /users/{user_id}/deactivate",
+        "POST /internal/introspect"
+      ]
+    },
+    {
+      "name": "catalog-service",
+      "database": "warehouse_catalog",
+      "tables": [
+        "categories",
+        "uoms",
+        "products",
+        "suppliers",
+        "warehouses",
+        "bins"
+      ],
+      "responsibilities": [
+        "master data CRUD/search",
+        "warehouse and bin master data",
+        "internal batched reference validation and lookup"
+      ],
+      "http_route_groups": [
+        "/categories",
+        "/uoms",
+        "/products",
+        "/suppliers",
+        "/warehouses",
+        "/warehouses/{warehouse_id}/bins",
+        "/internal/*"
+      ]
+    },
+    {
+      "name": "warehouse-service",
+      "database": "warehouse_operations",
+      "tables": [
+        "purchase_orders",
+        "po_items",
+        "grns",
+        "grn_items",
+        "stock_balances",
+        "stock_ledger"
+      ],
+      "responsibilities": [
+        "purchase order lifecycle",
+        "goods receipts",
+        "stock issue, transfer, adjustment, and expiry",
+        "balance and ledger reads"
+      ],
+      "http_route_groups": [
+        "/purchase-orders",
+        "/grns",
+        "/stock/issue",
+        "/stock/transfer",
+        "/stock/adjust",
+        "/stock/expiry/{product_id}",
+        "/stock/balance",
+        "/stock/ledger"
+      ]
+    },
+    {
+      "name": "reports-service",
+      "database": null,
+      "persistent_tables": [],
+      "responsibilities": [
+        "read-only API composition",
+        "reorder and expiry alerts",
+        "valuation",
+        "movement analysis"
+      ],
+      "dependencies": [
+        "auth-service",
+        "catalog-service",
+        "warehouse-service"
+      ],
+      "http_route_groups": [
+        "/alerts/reorder",
+        "/alerts/expiry",
+        "/reports/valuation",
+        "/reports/movement-analysis"
+      ],
+      "failure_policy": "Use bounded batch HTTP calls. Required upstream failure returns an explicit 503; never return a success-shaped empty report."
+    }
+  ],
+  "databases": [
+    {
+      "name": "warehouse_identity",
+      "owner_service": "auth-service",
+      "runtime_role": "identity_app",
+      "tables": [
+        {
+          "name": "users",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true, "identity": true},
+            {"name": "email", "type": "VARCHAR(254)", "nullable": false, "unique": true},
+            {"name": "password_hash", "type": "VARCHAR(255)", "nullable": false, "sensitive": true},
+            {"name": "full_name", "type": "VARCHAR(120)", "nullable": false},
+            {"name": "role", "type": "VARCHAR(24)", "nullable": false},
+            {"name": "warehouse_id", "type": "INTEGER", "nullable": true, "remote_reference": "warehouse_catalog.warehouses.id"},
+            {"name": "is_active", "type": "BOOLEAN", "nullable": false, "default": true}
+          ],
+          "checks": [
+            "role IN ('ADMIN', 'WAREHOUSE_MANAGER', 'STORE_CLERK')",
+            "role = 'ADMIN' OR warehouse_id IS NOT NULL"
+          ],
+          "indexes": [
+            ["warehouse_id"]
+          ],
+          "foreign_keys": []
+        }
+      ]
+    },
+    {
+      "name": "warehouse_catalog",
+      "owner_service": "catalog-service",
+      "runtime_role": "catalog_app",
+      "tables": [
+        {
+          "name": "categories",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true, "identity": true},
+            {"name": "name", "type": "VARCHAR(100)", "nullable": false, "unique": true}
+          ],
+          "foreign_keys": []
+        },
+        {
+          "name": "uoms",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true, "identity": true},
+            {"name": "code", "type": "VARCHAR(24)", "nullable": false, "unique": true},
+            {"name": "description", "type": "VARCHAR(120)", "nullable": false}
+          ],
+          "foreign_keys": []
+        },
+        {
+          "name": "products",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true, "identity": true},
+            {"name": "sku", "type": "VARCHAR(40)", "nullable": false, "unique": true},
+            {"name": "name", "type": "VARCHAR(120)", "nullable": false},
+            {"name": "category_id", "type": "INTEGER", "nullable": false},
+            {"name": "uom_id", "type": "INTEGER", "nullable": false},
+            {"name": "reorder_level", "type": "NUMERIC(14,3)", "nullable": false},
+            {"name": "unit_cost", "type": "NUMERIC(12,2)", "nullable": false},
+            {"name": "is_deleted", "type": "BOOLEAN", "nullable": false, "default": false}
+          ],
+          "checks": [
+            "reorder_level >= 0",
+            "unit_cost >= 0"
+          ],
+          "indexes": [
+            ["category_id"],
+            ["uom_id"]
+          ],
+          "foreign_keys": [
+            {"columns": ["category_id"], "references": "categories.id"},
+            {"columns": ["uom_id"], "references": "uoms.id"}
+          ]
+        },
+        {
+          "name": "suppliers",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true, "identity": true},
+            {"name": "name", "type": "VARCHAR(120)", "nullable": false},
+            {"name": "email", "type": "VARCHAR(254)", "nullable": false},
+            {"name": "phone", "type": "VARCHAR(40)", "nullable": false},
+            {"name": "address", "type": "VARCHAR(250)", "nullable": false},
+            {"name": "payment_terms", "type": "VARCHAR(120)", "nullable": false},
+            {"name": "is_active", "type": "BOOLEAN", "nullable": false, "default": true}
+          ],
+          "foreign_keys": []
+        },
+        {
+          "name": "warehouses",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true, "identity": true},
+            {"name": "code", "type": "VARCHAR(24)", "nullable": false, "unique": true},
+            {"name": "name", "type": "VARCHAR(120)", "nullable": false},
+            {"name": "city", "type": "VARCHAR(100)", "nullable": false},
+            {"name": "is_active", "type": "BOOLEAN", "nullable": false, "default": true}
+          ],
+          "foreign_keys": []
+        },
+        {
+          "name": "bins",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true, "identity": true},
+            {"name": "warehouse_id", "type": "INTEGER", "nullable": false},
+            {"name": "code", "type": "VARCHAR(24)", "nullable": false}
+          ],
+          "unique_constraints": [
+            ["warehouse_id", "code"]
+          ],
+          "foreign_keys": [
+            {"columns": ["warehouse_id"], "references": "warehouses.id"}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "warehouse_operations",
+      "owner_service": "warehouse-service",
+      "runtime_role": "operations_app",
+      "tables": [
+        {
+          "name": "purchase_orders",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true, "identity": true},
+            {"name": "po_no", "type": "VARCHAR(40)", "nullable": false, "unique": true},
+            {"name": "supplier_id", "type": "INTEGER", "nullable": false, "remote_reference": "warehouse_catalog.suppliers.id"},
+            {"name": "warehouse_id", "type": "INTEGER", "nullable": false, "remote_reference": "warehouse_catalog.warehouses.id"},
+            {"name": "status", "type": "VARCHAR(12)", "nullable": false},
+            {"name": "ordered_on", "type": "DATE", "nullable": false},
+            {"name": "total_amount", "type": "NUMERIC(26,2)", "nullable": false}
+          ],
+          "checks": [
+            "status IN ('OPEN', 'PARTIAL', 'CLOSED', 'CANCELLED')",
+            "total_amount >= 0"
+          ],
+          "indexes": [
+            ["warehouse_id", "status"],
+            ["supplier_id"]
+          ],
+          "foreign_keys": []
+        },
+        {
+          "name": "po_items",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true, "identity": true},
+            {"name": "po_id", "type": "INTEGER", "nullable": false},
+            {"name": "product_id", "type": "INTEGER", "nullable": false, "remote_reference": "warehouse_catalog.products.id"},
+            {"name": "ordered_qty", "type": "NUMERIC(14,3)", "nullable": false},
+            {"name": "received_qty", "type": "NUMERIC(14,3)", "nullable": false, "default": 0},
+            {"name": "unit_price", "type": "NUMERIC(12,2)", "nullable": false}
+          ],
+          "checks": [
+            "ordered_qty > 0",
+            "received_qty >= 0 AND received_qty <= ordered_qty",
+            "unit_price >= 0"
+          ],
+          "unique_constraints": [
+            ["po_id", "product_id"]
+          ],
+          "indexes": [
+            ["product_id"]
+          ],
+          "foreign_keys": [
+            {"columns": ["po_id"], "references": "purchase_orders.id"}
+          ]
+        },
+        {
+          "name": "grns",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true, "identity": true},
+            {"name": "grn_no", "type": "VARCHAR(40)", "nullable": false, "unique": true},
+            {"name": "po_id", "type": "INTEGER", "nullable": false},
+            {"name": "received_by", "type": "INTEGER", "nullable": false, "remote_reference": "warehouse_identity.users.id"},
+            {"name": "received_on", "type": "TIMESTAMPTZ", "nullable": false, "default": "clock_timestamp()"},
+            {"name": "remark", "type": "VARCHAR(500)", "nullable": true}
+          ],
+          "indexes": [
+            ["po_id"],
+            ["received_by"]
+          ],
+          "foreign_keys": [
+            {"columns": ["po_id"], "references": "purchase_orders.id"}
+          ]
+        },
+        {
+          "name": "grn_items",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true, "identity": true},
+            {"name": "grn_id", "type": "INTEGER", "nullable": false},
+            {"name": "po_item_id", "type": "INTEGER", "nullable": false},
+            {"name": "product_id", "type": "INTEGER", "nullable": false, "remote_reference": "warehouse_catalog.products.id"},
+            {"name": "qty", "type": "NUMERIC(14,3)", "nullable": false},
+            {"name": "bin_id", "type": "INTEGER", "nullable": false, "remote_reference": "warehouse_catalog.bins.id"}
+          ],
+          "checks": [
+            "qty > 0"
+          ],
+          "unique_constraints": [
+            ["grn_id", "po_item_id"]
+          ],
+          "indexes": [
+            ["po_item_id"],
+            ["product_id"],
+            ["bin_id"]
+          ],
+          "foreign_keys": [
+            {"columns": ["grn_id"], "references": "grns.id"},
+            {"columns": ["po_item_id"], "references": "po_items.id"}
+          ]
+        },
+        {
+          "name": "stock_balances",
+          "columns": [
+            {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true, "identity": true},
+            {"name": "product_id", "type": "INTEGER", "nullable": false, "remote_reference": "warehouse_catalog.products.id"},
+            {"name": "warehouse_id", "type": "INTEGER", "nullable": false, "remote_reference": "warehouse_catalog.warehouses.id"},
+            {"name": "quantity", "type": "NUMERIC(14,3)", "nullable": false, "default": 0},
+            {"name": "position_seq", "type": "INTEGER", "nullable": false, "default": 0},
+            {"name": "expiry_on", "type": "DATE", "nullable": true}
+          ],
+          "checks": [
+            "quantity >= 0",
+            "position_seq >= 0"
+          ],
+          "unique_constraints": [
+            ["warehouse_id", "product_id"]
+          ],
+          "indexes": [
+            ["product_id"]
+          ],
+          "foreign_keys": []
+        },
+        {
+          "name": "stock_ledger",
+          "append_only": true,
+          "columns": [
+            {"name": "id", "type": "INTEGER", "nullable": false, "primary_key": true, "identity": true},
+            {"name": "product_id", "type": "INTEGER", "nullable": false, "remote_reference": "warehouse_catalog.products.id"},
+            {"name": "warehouse_id", "type": "INTEGER", "nullable": false, "remote_reference": "warehouse_catalog.warehouses.id"},
+            {"name": "movement_type", "type": "VARCHAR(16)", "nullable": false},
+            {"name": "qty_delta", "type": "NUMERIC(14,3)", "nullable": false},
+            {"name": "reference_type", "type": "VARCHAR(24)", "nullable": false},
+            {"name": "reference_id", "type": "VARCHAR(80)", "nullable": false},
+            {"name": "balance_after", "type": "NUMERIC(14,3)", "nullable": false},
+            {"name": "position_seq", "type": "INTEGER", "nullable": false},
+            {"name": "reason", "type": "VARCHAR(500)", "nullable": true},
+            {"name": "created_by", "type": "INTEGER", "nullable": false, "remote_reference": "warehouse_identity.users.id"},
+            {"name": "created_at", "type": "TIMESTAMPTZ", "nullable": false, "default": "clock_timestamp()"}
+          ],
+          "checks": [
+            "balance_after >= 0 AND position_seq > 0",
+            "RECEIPT and TRANSFER_IN have qty_delta > 0",
+            "ISSUE and TRANSFER_OUT have qty_delta < 0",
+            "ADJUSTMENT has nonzero qty_delta and a nonblank reason"
+          ],
+          "unique_constraints": [
+            ["warehouse_id", "product_id", "position_seq"]
+          ],
+          "indexes": [
+            ["product_id", "created_at", "id"],
+            ["movement_type", "created_at"],
+            ["created_by"]
+          ],
+          "foreign_keys": []
+        }
+      ]
+    }
+  ],
+  "foreign_key_policy": {
+    "allowed": [
+      "catalog.products.category_id -> catalog.categories.id",
+      "catalog.products.uom_id -> catalog.uoms.id",
+      "catalog.bins.warehouse_id -> catalog.warehouses.id",
+      "operations.po_items.po_id -> operations.purchase_orders.id",
+      "operations.grns.po_id -> operations.purchase_orders.id",
+      "operations.grn_items.grn_id -> operations.grns.id",
+      "operations.grn_items.po_item_id -> operations.po_items.id"
+    ],
+    "remote_ids_are_not_foreign_keys": [
+      "identity.users.warehouse_id -> catalog.warehouses.id",
+      "operations.purchase_orders.supplier_id -> catalog.suppliers.id",
+      "operations.purchase_orders.warehouse_id -> catalog.warehouses.id",
+      "operations.po_items.product_id -> catalog.products.id",
+      "operations.grns.received_by -> identity.users.id",
+      "operations.grn_items.product_id -> catalog.products.id",
+      "operations.grn_items.bin_id -> catalog.bins.id",
+      "operations.stock_balances.product_id -> catalog.products.id",
+      "operations.stock_balances.warehouse_id -> catalog.warehouses.id",
+      "operations.stock_ledger.product_id -> catalog.products.id",
+      "operations.stock_ledger.warehouse_id -> catalog.warehouses.id",
+      "operations.stock_ledger.created_by -> identity.users.id"
+    ]
+  },
+  "transaction_invariants": [
+    {
+      "workflow": "goods_receipt",
+      "single_database": "warehouse_operations",
+      "atomic_changes": [
+        "purchase_orders and po_items received quantities/status",
+        "grns and grn_items",
+        "stock_balances",
+        "stock_ledger receipt entries"
+      ],
+      "locking": [
+        "lock the parent PO before checking outstanding quantities",
+        "lock stock positions in deterministic warehouse/product order"
+      ]
+    },
+    {
+      "workflow": "stock_issue",
+      "single_database": "warehouse_operations",
+      "atomic_changes": [
+        "stock_balances",
+        "stock_ledger issue entry"
+      ]
+    },
+    {
+      "workflow": "stock_transfer",
+      "single_database": "warehouse_operations",
+      "atomic_changes": [
+        "source and destination stock_balances",
+        "TRANSFER_OUT and TRANSFER_IN ledger entries with shared reference_id"
+      ],
+      "locking": "lock both positions in deterministic order"
+    },
+    {
+      "workflow": "stock_adjustment",
+      "single_database": "warehouse_operations",
+      "atomic_changes": [
+        "stock_balances",
+        "stock_ledger adjustment entry with reason"
+      ]
+    }
+  ],
+  "cross_service_rules": [
+    "No distributed transaction, two-phase commit, broker, saga, or outbox in this phase.",
+    "Perform required remote reference checks before local business writes.",
+    "Fail explicitly with 503 when a required service is unavailable.",
+    "Use short timeouts and batched lookups; avoid N+1 HTTP calls.",
+    "Keep historical documents readable after remote record deactivation.",
+    "Do not automatically retry non-idempotent stock POST requests."
+  ],
+  "security_and_behavior": {
+    "token_issuer": "auth-service only",
+    "jwt_claims": ["sub", "iss", "aud", "iat", "exp"],
+    "revocation_behavior": "Preserve immediate account deactivation by checking Auth introspection on protected requests.",
+    "introspection_failure": "fail closed with 503",
+    "do_not_trust": [
+      "user ID from request JSON",
+      "role from request JSON or arbitrary headers",
+      "warehouse ID in request JSON as the caller's authority"
+    ],
+    "password_hash_policy": "Never return or log hashes. Preserve existing source hashing behavior unless an explicit assignment rule requires a reviewed migration.",
+    "http_status_intent": {
+      "created": 201,
+      "archive_no_body": 204,
+      "invalid_identity": 401,
+      "forbidden": 403,
+      "not_found": 404,
+      "business_conflict": 409,
+      "invalid_input": 422,
+      "required_dependency_unavailable": 503
+    }
+  },
+  "preserve_from_monolith": [
+    "role and home-warehouse authorization",
+    "Pydantic field validation and safe response schemas",
+    "product soft deletion",
+    "purchase-order state transitions and outstanding-quantity checks",
+    "one balance row per warehouse/product",
+    "no negative stock",
+    "deterministic PostgreSQL row locking",
+    "balance and matching ledger entry commit together",
+    "transfer's two ledger legs commit together",
+    "append-only ledger trigger",
+    "single expiry date per product/warehouse, not lots"
+  ],
+  "historical_monolith_source_mapping": {
+    "app/main.py": ["five FastAPI entry points", "gateway routing and Swagger"],
+    "app/routers/accounts.py": ["auth-service"],
+    "app/security.py": ["auth-service token issue; service introspection clients"],
+    "app/routers/catalog.py": ["catalog-service"],
+    "app/routers/inbound.py": ["warehouse-service"],
+    "app/routers/inventory.py": ["warehouse-service"],
+    "app/stock.py": ["warehouse-service stock transaction logic"],
+    "app/routers/reports.py": ["reports-service; replace cross-domain SQL joins with HTTP composition"],
+    "app/setup.py": ["replace single-database bootstrap with per-database migrations and explicit Auth admin bootstrap"],
+    "app/static/vendor": ["move existing Swagger assets and all license/notice files to api-gateway/static/vendor"],
+    "app/models": ["split models by owning database"],
+    "app/Schemas": ["split request/response schemas by service; use lowercase package names in new code"],
+    "app/schemas.py": ["legacy star-import wrapper; do not duplicate schema implementations"],
+    "migrations/versions/0001_create_warehouse_tables.py": ["source constraints and ledger trigger; split into three Alembic histories"]
+  },
+  "implementation_policy": {
+    "do_not_create": [
+      "tests or test scaffolding",
+      "Docker or Compose files",
+      "CI or deployment configuration",
+      "monitoring stack",
+      "message broker",
+      "reporting database",
+      "lot/batch tables",
+      "per-bin stock balance table",
+      "idempotency table without approved requirement",
+      "one-file directories such as repositories/ or core/ without actual need"
+    ],
+    "required": [
+      "one requirements.txt and one local virtual environment per runnable process",
+      "derive minimal pinned service dependencies from current requirements and imports; add HTTP client dependency only where service APIs are called",
+      "preserve current pwdlib[argon2] password hashing unless an explicit rubric requires a reviewed change",
+      "separate Alembic configuration/history for each owning database",
+      "explicit admin bootstrap with no hard-coded password",
+      "root ignore rules for .env, .venv, Python bytecode and caches",
+      "preserve unrelated working-tree modifications",
+      "never run migrations against the existing monolith DB without explicit target confirmation"
+    ],
+    "post_change_checks": [
+      "parse/import each service",
+      "verify each migration targets the intended DB",
+      "verify each service imports only its own SQLAlchemy models",
+      "verify no cross-database ForeignKey remains",
+      "verify report service has no DB dependency",
+      "report test suites were intentionally not created or run"
+    ]
+  },
+  "implementation_order": [
+    "inspect git status and current source",
+    "create service skeletons and per-process environment/dependency files",
+    "split models and create three isolated migrations",
+    "implement Auth and admin bootstrap",
+    "implement Catalog CRUD and internal batch API",
+    "implement Warehouse PO/GRN/stock transaction services",
+    "implement Reports API composition",
+    "implement Gateway routes and Swagger selector",
+    "run non-test import and migration-target checks",
+    "summarize changes and any deferred work"
+  ]
+}
