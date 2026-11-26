@@ -1,10 +1,13 @@
+import asyncio
 from contextlib import asynccontextmanager
+from copy import deepcopy
 from pathlib import Path
 from uuid import uuid4
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
@@ -16,6 +19,7 @@ SERVICE_PREFIXES = {
     "api/warehouse": "warehouse",
     "api/reports": "reports",
 }
+OPENAPI_METHODS = {"delete", "get", "head", "options", "patch", "post", "put"}
 FORWARDED_REQUEST_HEADERS = {
     "authorization",
     "accept",
@@ -44,7 +48,14 @@ async def lifespan(app: FastAPI):
     await app.state.http.aclose()
 
 
-app = FastAPI(title="Warehouse API Gateway", version="1.0.0", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
+app = FastAPI(
+    title="Warehouse API Gateway",
+    version="1.0.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+    lifespan=lifespan,
+)
 STATIC = Path(__file__).resolve().parent / "static"
 
 
@@ -72,39 +83,12 @@ def home():
 
 @app.get("/docs", include_in_schema=False)
 def swagger():
-    return HTMLResponse(
-        """
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>Warehouse Inventory API</title>
-    <link rel="icon" href="/static/favicon.png">
-    <link rel="stylesheet" href="/static/vendor/swagger-ui.css">
-  </head>
-  <body>
-    <div id="swagger-ui"></div>
-    <script src="/static/vendor/swagger-ui-bundle.js"></script>
-    <script>
-      window.onload = () => {
-        window.ui = SwaggerUIBundle({
-          urls: [
-            {name: "Auth", url: "/openapi/auth.json"},
-            {name: "Catalog", url: "/openapi/catalog.json"},
-            {name: "Warehouse", url: "/openapi/warehouse.json"},
-            {name: "Reports", url: "/openapi/reports.json"}
-          ],
-          "urls.primaryName": "Auth",
-          dom_id: "#swagger-ui",
-          deepLinking: true,
-          presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
-          layout: "StandaloneLayout"
-        });
-      };
-    </script>
-  </body>
-</html>
-"""
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title="Warehouse Inventory API",
+        swagger_js_url="/static/vendor/swagger-ui-bundle.js",
+        swagger_css_url="/static/vendor/swagger-ui.css",
+        swagger_favicon_url="/static/favicon.png",
     )
 
 
@@ -113,33 +97,190 @@ def health():
     return {"status": "ok"}
 
 
-async def openapi_definition(service: str, request: Request):
+def swagger_security_scheme(name: str, definition: dict) -> tuple[str, dict]:
+    if not isinstance(definition, dict):
+        return name, definition
+    flows = definition.get("flows")
+    password_flow = (
+        flows.get("password")
+        if definition.get("type") == "oauth2" and isinstance(flows, dict)
+        else None
+    )
+    if (
+        isinstance(password_flow, dict)
+        and password_flow.get("tokenUrl") == "/api/auth/auth/login"
+        and not password_flow.get("scopes")
+    ):
+        return "BearerAuth", {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": (
+                "Paste the access token returned by POST /api/auth/auth/login."
+            ),
+        }
+    return name, definition
+
+
+def merge_openapi_documents(
+    gateway_document: dict,
+    service_documents: dict[str, dict],
+) -> dict:
+    merged = deepcopy(gateway_document)
+    paths = merged.setdefault("paths", {})
+    components = merged.setdefault("components", {})
+    tags = merged.setdefault("tags", [])
+
+    for service, source in service_documents.items():
+        source_components = source.get("components", {})
+        component_names = {}
+        pending_security_schemes = {}
+        for section, section_components in source_components.items():
+            if not isinstance(section_components, dict):
+                continue
+            component_names[section] = {}
+            for name, definition in section_components.items():
+                source_name = name
+                merged_name = f"{service}__{name}"
+                if section == "securitySchemes":
+                    name, definition = swagger_security_scheme(name, definition)
+                    existing = {
+                        **components.get(section, {}),
+                        **pending_security_schemes,
+                    }
+                    equivalent_name = next(
+                        (
+                            existing_name
+                            for existing_name, existing_definition in existing.items()
+                            if existing_definition == definition
+                        ),
+                        None,
+                    )
+                    if equivalent_name is not None:
+                        merged_name = equivalent_name
+                    elif name not in existing:
+                        merged_name = name
+                        pending_security_schemes[merged_name] = definition
+                    else:
+                        merged_name = f"{service}__{name}"
+                        pending_security_schemes[merged_name] = definition
+                component_names[section][source_name] = merged_name
+
+        def rewrite(value):
+            if isinstance(value, dict):
+                rewritten = {}
+                for key, item in value.items():
+                    if key == "$ref" and isinstance(item, str):
+                        parts = item.split("/", 3)
+                        if len(parts) == 4 and parts[1] == "components":
+                            item = (
+                                f"#/components/{parts[2]}/"
+                                f"{component_names.get(parts[2], {}).get(parts[3], parts[3])}"
+                            )
+                    elif key == "components" and isinstance(item, dict):
+                        item = {
+                            section: {
+                                component_names.get(section, {}).get(name, name): rewrite(
+                                    swagger_security_scheme(name, definition)[1]
+                                    if section == "securitySchemes"
+                                    and isinstance(definition, dict)
+                                    else definition
+                                )
+                                for name, definition in section_components.items()
+                            }
+                            for section, section_components in item.items()
+                        }
+                    elif key == "security" and isinstance(item, list):
+                        item = [
+                            {
+                                component_names.get("securitySchemes", {}).get(name, name): scopes
+                                for name, scopes in requirement.items()
+                            }
+                            for requirement in item
+                        ]
+                    else:
+                        item = rewrite(item)
+                    rewritten[key] = item
+                return rewritten
+            if isinstance(value, list):
+                return [rewrite(item) for item in value]
+            return value
+
+        rewritten_source = rewrite(source)
+        for section, section_components in rewritten_source.get("components", {}).items():
+            components.setdefault(section, {}).update(section_components)
+
+        for path, path_item in rewritten_source.get("paths", {}).items():
+            path_item.pop("servers", None)
+            for method, operation in path_item.items():
+                if method.lower() not in OPENAPI_METHODS or not isinstance(operation, dict):
+                    continue
+                operation.pop("servers", None)
+                if operation.get("operationId"):
+                    operation["operationId"] = f"{service}_{operation['operationId']}"
+                operation["tags"] = [
+                    f"{service.title()} - {tag}" for tag in operation.get("tags", [])
+                ]
+                if "security" not in operation and rewritten_source.get("security"):
+                    operation["security"] = rewritten_source["security"]
+            paths[f"/api/{service}{path}"] = path_item
+
+        tags.extend(
+            {
+                **tag,
+                "name": f"{service.title()} - {tag['name']}",
+            }
+            for tag in rewritten_source.get("tags", [])
+        )
+
+    merged["servers"] = [{"url": "/"}]
+    return merged
+
+
+@app.get("/openapi.json", include_in_schema=False)
+async def openapi_definition(request: Request):
     settings = get_settings()
-    if service not in settings.upstreams:
-        raise HTTPException(404, "Service OpenAPI definition not found.")
-    try:
-        response = await request.app.state.http.get(f"{settings.upstreams[service]}/openapi.json")
-    except httpx.RequestError:
-        raise HTTPException(503, f"{service.title()} service is unavailable.") from None
-    if response.status_code != 200:
-        raise HTTPException(503, f"{service.title()} OpenAPI definition is unavailable.")
-    try:
-        document = response.json()
-    except ValueError:
-        raise HTTPException(503, f"{service.title()} returned an invalid OpenAPI document.") from None
-    if not isinstance(document, dict) or not isinstance(document.get("paths"), dict):
-        raise HTTPException(503, f"{service.title()} returned an invalid OpenAPI document.")
-    prefix = f"/api/{service}"
-    document["servers"] = [{"url": prefix}]
-    return JSONResponse(document)
+    services = list(SERVICE_PREFIXES.values())
+    responses = await asyncio.gather(
+        *(
+            request.app.state.http.get(
+                f"{settings.upstreams[service]}/openapi.json"
+            )
+            for service in services
+        ),
+        return_exceptions=True,
+    )
+    service_documents = {}
+    for service, response in zip(services, responses):
+        if isinstance(response, httpx.RequestError):
+            raise HTTPException(
+                503,
+                f"{service.title()} service is unavailable; shared API docs need all services.",
+            ) from None
+        if isinstance(response, BaseException):
+            raise response
+        if response.status_code != 200:
+            raise HTTPException(
+                503,
+                f"{service.title()} OpenAPI definition is unavailable.",
+            )
+        try:
+            document = response.json()
+        except ValueError:
+            raise HTTPException(
+                503, f"{service.title()} returned an invalid OpenAPI document."
+            ) from None
+        if not isinstance(document, dict) or not isinstance(document.get("paths"), dict):
+            raise HTTPException(
+                503, f"{service.title()} returned an invalid OpenAPI document."
+            )
+        service_documents[service] = document
+
+    return JSONResponse(
+        merge_openapi_documents(request.app.openapi(), service_documents)
+    )
 
 
-app.add_api_route(
-    "/openapi/{service}.json",
-    openapi_definition,
-    methods=["GET"],
-    include_in_schema=False,
-)
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 

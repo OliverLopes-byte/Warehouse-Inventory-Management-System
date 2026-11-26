@@ -5,6 +5,16 @@ PostgreSQL databases. The service boundaries and exact schema are documented in
 [`prompts/MICROSERVICES_IMPLEMENTATION_HANDOFF.md`](prompts/MICROSERVICES_IMPLEMENTATION_HANDOFF.md)
 and [`prompts/MICROSERVICES_PROJECT_METADATA.json`](prompts/MICROSERVICES_PROJECT_METADATA.json).
 
+<<<<<<< HEAD
+| Open this | Use it for |
+| --- | --- |
+| This README | Install Python and PostgreSQL, set up the database, start the app |
+| [Swagger walkthrough](docs/SWAGGER_WALKTHROUGH.md) | Demonstrate the 22 stories in a reproducible order |
+| [Code walkthrough](docs/CODE_WALKTHROUGH.md) | Explain a request line by line and understand each module |
+| [Source line reference](docs/SOURCE_LINE_REFERENCE.md) | Locate and explain the actual classes, functions and Swagger integration |
+| [Acceptance evidence](docs/ACCEPTANCE.md) | Trace requirements to endpoints, tests and implementation decisions |
+| [Microservices proposal](docs/MICROSERVICES_PROJECT_STRUCTURE.md) | Review the minimal service folders, PostgreSQL ownership, and transaction boundaries |
+=======
 | Process | Port | Data |
 |---|---:|---|
 | API Gateway | 8000 | None |
@@ -12,6 +22,7 @@ and [`prompts/MICROSERVICES_PROJECT_METADATA.json`](prompts/MICROSERVICES_PROJEC
 | Catalog | 8002 | `warehouse_catalog` |
 | Warehouse | 8003 | `warehouse_operations` |
 | Reports | 8004 | None |
+>>>>>>> 3c809fc2b3b2fb2caac16d4bff640060a97b0f20
 
 Auth, Catalog, and Warehouse own separate databases. Reports is a read-only
 API composition service, and the Gateway only routes requests and hosts the

@@ -42,7 +42,7 @@ PostgreSQL databases:
 
 | Process | Port | Owns |
 |---|---:|---|
-| API Gateway | 8000 | Routing and shared Swagger UI; no database |
+| API Gateway | 8000 | Routing and combined Swagger UI; no database |
 | Auth | 8001 | `warehouse_identity` |
 | Catalog | 8002 | `warehouse_catalog` |
 | Warehouse | 8003 | `warehouse_operations` |
@@ -103,8 +103,8 @@ reaches four backend APIs.
 Study in this order:
 
 1. `api-gateway/main.py` — FastAPI creation, lifespan-managed HTTP client,
-   security headers, home redirect, docs HTML, health check, OpenAPI forwarding,
-   and proxy behavior.
+   security headers, home redirect, generated Swagger UI, combined OpenAPI
+   document, health check, and proxy behavior.
 2. `api-gateway/app/config.py` — ports, upstream URLs, and timeout settings.
 3. `api-gateway/requirements.txt` and `.env.example` — runtime dependencies
    and safe configuration names; do not reveal local secrets.
@@ -112,9 +112,24 @@ Study in this order:
    how they are served and retain attribution; do not study minified vendor
    JavaScript line by line.
 
+The single `/docs` page combines the Auth, Catalog, Warehouse, and Reports
+operations. Requests use `/api/auth/...`, `/api/catalog/...`,
+`/api/warehouse/...`, and `/api/reports/...`; for example, the login operation
+is `/api/auth/auth/login`. All four backend services must be reachable to load
+the combined OpenAPI document. The Gateway can still start and serve its own
+health check while a backend is unavailable, but requests to that backend
+cannot succeed.
+
+The Gateway presents one `BearerAuth` authorization scheme. To use it, call
+`POST /api/auth/auth/login` with the account email in the form's `username`
+field and its password, copy the response's `access_token`, then paste only
+that token into **Authorize**. Swagger adds the `Bearer` prefix to requests.
+The same token is forwarded to each service; services still apply their own
+role and warehouse-scope checks.
+
 Concepts to learn: reverse proxy, upstream service, URL prefix rewriting,
-header forwarding, timeout, lifespan/resource cleanup, OpenAPI document, and
-why Gateway errors can be 404 or 503.
+header forwarding, timeout, lifespan/resource cleanup, OpenAPI aggregation,
+and why Gateway errors can be 404 or 503.
 
 **Checkpoint:** Trace a public path such as `/api/catalog/products` from the
 Gateway route matcher to the Catalog upstream, and explain what the Gateway
@@ -149,6 +164,28 @@ Study in this order:
 Concepts to learn: password hash versus password, bearer token, JWT claims,
 authentication versus authorization, role dependency, service credential,
 introspection, soft deactivation, SQLAlchemy model, and Alembic migration.
+
+The role labels below map to the stored values `ADMIN`,
+`WAREHOUSE_MANAGER`, and `STORE_CLERK`. The current role checks implement
+these business permissions:
+
+| Capability | Administrator | Manager | Clerk |
+|---|---|---|---|
+| Login and profile | Yes | Yes | Yes |
+| List, create, or deactivate users | Yes | No | No |
+| Read master data | Yes | Yes | Yes |
+| Create or update master data, products, or facilities | Yes | No | No |
+| Create, close, or cancel purchase orders | No | Yes | No |
+| Read purchase orders | No | Yes | Yes |
+| Receive goods / create a GRN; issue stock | No | No | Yes |
+| Transfer or adjust stock; set expiry; view reorder/expiry alerts | No | Yes | No |
+| Read stock balance and ledger | Yes | Yes | Yes |
+| View reports | Yes | No | No |
+
+Managers and clerks are scoped to their assigned home warehouse for warehouse
+operations; administrators can read stock across warehouses. A bearer token
+identifies the active user, but the service's current role and warehouse
+assignment determine access.
 
 **Checkpoint:** Describe login from form submission to token response, then
 describe how a protected service asks Auth to validate that token and the

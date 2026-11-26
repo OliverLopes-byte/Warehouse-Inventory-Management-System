@@ -6,7 +6,6 @@ import jwt
 from fastapi import Depends, Header, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from pwdlib import PasswordHash
-from sqlalchemy import select
 
 from app.config import get_settings
 from app.database import Database
@@ -42,7 +41,7 @@ def create_token(user_id: int) -> str:
     )
 
 
-def current_user(token: Annotated[str, Depends(bearer)], db: Database) -> User:
+def decode_current(token: str, db: Database) -> User:
     settings = get_settings()
     try:
         claims = jwt.decode(
@@ -62,6 +61,10 @@ def current_user(token: Annotated[str, Depends(bearer)], db: Database) -> User:
     if user is None or not user.is_active:
         raise invalid_credentials()
     return user
+
+
+def current_user(token: Annotated[str, Depends(bearer)], db: Database) -> User:
+    return decode_current(token, db)
 
 
 CurrentUser = Annotated[User, Depends(current_user)]
@@ -84,25 +87,3 @@ def service_access(
     expected = get_settings().service_token
     if x_service_token is None or not secrets.compare_digest(x_service_token, expected):
         raise HTTPException(403, "Service credentials are invalid.")
-
-
-def decode_current(token: str, db: Database) -> User:
-    settings = get_settings()
-    try:
-        claims = jwt.decode(
-            token,
-            settings.jwt_secret,
-            algorithms=["HS256"],
-            issuer=settings.jwt_issuer,
-            audience=settings.jwt_audience,
-            options={"require": ["sub", "iss", "aud", "iat", "exp"]},
-        )
-        user_id = int(claims["sub"])
-    except (jwt.InvalidTokenError, ValueError, TypeError):
-        raise invalid_credentials() from None
-    if not 0 < user_id <= 2_147_483_647:
-        raise invalid_credentials()
-    user = db.get(User, user_id)
-    if user is None or not user.is_active:
-        raise invalid_credentials()
-    return user
