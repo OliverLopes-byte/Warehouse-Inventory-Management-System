@@ -199,9 +199,13 @@ to combine the endpoint descriptions and make their paths unique. This is an
 optional extra step, not an exception or an error. Do not hand-maintain a
 second copy of every service endpoint in the gateway.
 
-Swagger login should use the OAuth2 password form for the Identity service.
-After authorizing with the returned bearer token, the UI should send
-`Authorization: Bearer ...` through the gateway to protected operations.
+The combined Gateway Swagger UI should expose one HTTP Bearer authorization
+scheme so a user can paste a token once for all services. Obtain that token
+from the Identity login endpoint (`POST /api/auth/auth/login`, using its
+form-encoded email and password fields), then paste the returned
+`access_token` into **Authorize**. Swagger adds the `Bearer` prefix and the
+Gateway forwards the header. Each downstream service still checks the current
+account, role, and warehouse scope.
 Document example requests/responses and the expected 401, 403, 404, 409, and
 422 cases in the individual service schemas.
 
@@ -223,11 +227,12 @@ Document example requests/responses and the expected 401, 403, 404, 409, and
 - Use bcrypt through Passlib as required by the rubric. Never log passwords,
   tokens, database URLs, or secret values. Do not hard-code credentials in
   source, migrations, or seed data.
-- The current Swagger login uses the OAuth2 password form because it is
-  convenient for this assignment. Treat that as a classroom/demo flow; a
-  production browser client should use a standard identity-provider flow such
-  as OpenID Connect Authorization Code with PKCE rather than collecting the
-  user's password in the client.
+- The login endpoint uses the OAuth2 password form for this assignment, but the
+  combined Gateway Swagger authorization is HTTP Bearer and accepts the issued
+  token. Treat the password-form login as a classroom/demo flow; a production
+  browser client should use a standard identity-provider flow such as OpenID
+  Connect Authorization Code with PKCE rather than collecting the user's
+  password in the client.
 - Admin-provisioned user creation is the safe registration flow. Do not allow
   public self-registration to choose `ADMIN` or another user's warehouse.
 - The gateway should accept only explicitly configured frontend origins. If
