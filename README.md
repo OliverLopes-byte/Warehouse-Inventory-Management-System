@@ -9,6 +9,7 @@ A beginner-readable implementation of **Case Study 06 — Warehouse Inventory Ma
 | [Code walkthrough](docs/CODE_WALKTHROUGH.md) | Explain a request line by line and understand each module |
 | [Source line reference](docs/SOURCE_LINE_REFERENCE.md) | Locate and explain the actual classes, functions and Swagger integration |
 | [Acceptance evidence](docs/ACCEPTANCE.md) | Trace requirements to endpoints, tests and implementation decisions |
+| [Microservices proposal](docs/MICROSERVICES_PROJECT_STRUCTURE.md) | Review the minimal service folders, PostgreSQL ownership, and transaction boundaries |
 
 ## First run
 
